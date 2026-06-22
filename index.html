@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pantheon — Controle de Estoque</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --purple:#6B3FA0;--purple-l:#EDE9F7;--purple-m:#9B7BBF;--purple-d:#4A2878;
+  --bg:#F8F7FC;--surf:#FFF;--surf2:#F3F1F9;--bdr:#E2DDF0;
+  --tx:#1C1530;--tx2:#7A6E91;--tx3:#B0A8C8;
+  --green:#3B6D11;--green-bg:#EAF3DE;
+  --red:#A32D2D;--red-bg:#FCEBEB;
+  --blue:#185FA5;--blue-bg:#E6F1FB;
+  --amber:#854F0B;--amber-bg:#FAEEDA;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;
+  --r:8px;--rl:12px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;font-size:14px;line-height:1.5}
+/* Header */
+.hdr{background:var(--surf);border-bottom:1px solid var(--bdr);padding:0 1.5rem;display:flex;align-items:center;gap:1rem;height:60px;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(107,63,160,.06)}
+.logo-name{font-size:19px;font-weight:700;color:var(--purple);letter-spacing:.3px}
+.logo-tag{font-size:9px;letter-spacing:2px;color:var(--purple-m);margin-top:2px}
+.hdr-badge{margin-left:auto;background:var(--purple-l);color:var(--purple);font-size:11px;font-weight:600;padding:3px 11px;border-radius:99px}
+.hdr-date{font-size:12px;color:var(--tx2)}
+/* Layout */
+.layout{display:flex;height:calc(100vh - 60px)}
+/* Sidebar */
+.sidebar{width:210px;min-width:210px;background:var(--surf);border-right:1px solid var(--bdr);padding:.75rem 0;display:flex;flex-direction:column;gap:1px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);padding:.75rem 1.1rem .2rem;margin-top:.4rem}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 1.1rem;cursor:pointer;border:none;background:none;width:100%;text-align:left;font-size:13px;color:var(--tx2);border-left:3px solid transparent;transition:all .1s}
+.nav-item:hover{background:var(--bg);color:var(--tx)}
+.nav-item.active{background:var(--purple-l);color:var(--purple);border-left-color:var(--purple);font-weight:600}
+.nav-icon{width:16px;text-align:center;font-size:14px}
+/* Main */
+.main{flex:1;overflow-y:auto;padding:1.5rem}
+.panel{display:none}.panel.active{display:block}
+.page-title{font-size:17px;font-weight:700;color:var(--tx);margin-bottom:1.25rem}
+/* Metrics */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:1.5rem}
+.metric{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rl);padding:.9rem 1rem}
+.metric-lbl{font-size:11px;color:var(--tx2);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.metric-val{font-size:24px;font-weight:700;color:var(--tx)}
+.metric-sub{font-size:11px;color:var(--tx3);margin-top:2px}
+.metric.alert .metric-val{color:var(--red)}
+.metric.ok .metric-val{color:var(--green)}
+/* Cards */
+.card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rl);padding:1.1rem;margin-bottom:1.1rem}
+.card-title{font-size:12px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.9rem}
+/* Table */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:7px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--tx2);border-bottom:1px solid var(--bdr);white-space:nowrap;background:var(--bg)}
+td{padding:8px 10px;border-bottom:1px solid var(--bdr);color:var(--tx);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--surf2)}
+/* Pills */
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+.pi{background:var(--green-bg);color:var(--green)}
+.po{background:var(--red-bg);color:var(--red)}
+.pp{background:var(--purple-l);color:var(--purple-d)}
+.pb{background:var(--blue-bg);color:var(--blue)}
+.pa{background:var(--amber-bg);color:var(--amber)}
+.pt{background:var(--teal-bg);color:var(--teal)}
+/* Status dot */
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.dot-ok{background:var(--green)}
+.dot-warn{background:#EF9F27}
+.dot-alert{background:var(--red)}
+/* Filter */
+.frow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.frow input,.frow select{flex:1;min-width:130px}
+/* Form */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:.9rem}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:4px}
+input,select,textarea{width:100%;padding:7px 10px;font-size:13px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--surf);color:var(--tx);transition:border-color .1s;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(107,63,160,.1)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;font-size:13px;font-weight:600;border:none;border-radius:var(--r);cursor:pointer;transition:all .1s}
+.btn-p{background:var(--purple);color:#fff}.btn-p:hover{background:var(--purple-d)}
+.btn-g{background:var(--surf2);color:var(--tx);border:1px solid var(--bdr)}.btn-g:hover{background:var(--bdr)}
+.faction{display:flex;gap:8px;justify-content:flex-end;padding-top:.75rem;border-top:1px solid var(--bdr);margin-top:.4rem}
+/* Toast */
+#toast{position:fixed;bottom:1.25rem;right:1.25rem;background:#27500A;color:#fff;padding:11px 18px;border-radius:var(--r);font-size:13px;font-weight:500;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;z-index:999}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.err{background:var(--red)}
+.empty{text-align:center;padding:2rem;color:var(--tx3);font-size:13px}
+/* Stock grid */
+.stock-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.stock-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--rl);padding:.9rem 1rem}
+.sc-name{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--tx2);margin-bottom:6px}
+.sc-val{font-size:22px;font-weight:700}
+.sc-bar{height:5px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:4px}
+.sc-fill{height:100%;border-radius:3px}
+.sc-cat{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--tx3);margin-bottom:2px}
+/* Grid 2 */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+@media(max-width:700px){.sidebar{display:none}.g2{grid-template-columns:1fr}}
+.btn-csv{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;font-weight:600;border:1.5px solid var(--purple);border-radius:var(--r);cursor:pointer;background:var(--surf);color:var(--purple);transition:all .12s}
+.btn-csv:hover{background:var(--purple-l)}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div>
+    <div class="logo-name">Pantheon</div>
+    <div class="logo-tag">EMAGRECIMENTO · HIPERTROFIA · LONGEVIDADE</div>
+  </div>
+  <span class="hdr-date" id="hdr-date"></span>
+  <div style="display:flex;gap:8px;margin-left:auto;align-items:center">
+    <button class="btn-csv" onclick="document.getElementById('csv-input').click()" title="Importar CSV para atualizar estoque">
+      📥 Importar CSV
+    </button>
+    <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(event)">
+    <span class="hdr-badge">Controle de Estoque</span>
+  </div>
+</header>
+
+<!-- CSV Modal -->
+<div id="csv-modal" style="display:none;position:fixed;inset:0;background:rgba(28,21,48,.55);z-index:500;align-items:center;justify-content:center">
+  <div style="background:var(--surf);border-radius:var(--rl);padding:1.75rem;max-width:540px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:.5rem">Importar CSV</div>
+    <div id="csv-preview" style="font-size:13px;color:var(--tx2);margin-bottom:1rem"></div>
+    <div style="background:var(--bg);border-radius:var(--r);padding:.75rem 1rem;max-height:220px;overflow-y:auto;margin-bottom:1.25rem">
+      <table style="width:100%;border-collapse:collapse;font-size:12px" id="csv-table"></table>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-g" onclick="closeCSV()">Cancelar</button>
+      <button class="btn btn-p" onclick="applyCSV()">✓ Aplicar atualização</button>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+<nav class="sidebar">
+  <span class="nav-sec">Visão geral</span>
+  <button class="nav-item active" onclick="show('dashboard',this)"><span class="nav-icon">📊</span> Painel geral</button>
+  <button class="nav-item" onclick="show('alertas',this)"><span class="nav-icon">⚠️</span> Alertas de estoque</button>
+
+  <span class="nav-sec">Medicamentos</span>
+  <button class="nav-item" onclick="show('mov',this)"><span class="nav-icon">📋</span> Movimentações</button>
+  <button class="nav-item" onclick="show('reg-entrada',this)"><span class="nav-icon">➕</span> Registrar entrada</button>
+  <button class="nav-item" onclick="show('reg-saida',this)"><span class="nav-icon">📤</span> Registrar saída</button>
+
+  <span class="nav-sec">Tirzepatida</span>
+  <button class="nav-item" onclick="show('tirz-dash',this)"><span class="nav-icon">📊</span> Painel Tirzepatida</button>
+  <button class="nav-item" onclick="show('tirz-amp',this)"><span class="nav-icon">📦</span> Ampolas</button>
+  <button class="nav-item" onclick="show('tirz-dose',this)"><span class="nav-icon">💉</span> Doses aplicadas</button>
+  <button class="nav-item" onclick="show('tirz-nova-amp',this)"><span class="nav-icon">➕</span> Nova entrada amp</button>
+  <button class="nav-item" onclick="show('tirz-saida-amp',this)"><span class="nav-icon">📤</span> Saída de ampola</button>
+  <button class="nav-item" onclick="show('tirz-nova-dose',this)"><span class="nav-icon">🩺</span> Registrar dose</button>
+
+  <span class="nav-sec">Inventário</span>
+  <button class="nav-item" onclick="show('inv',this)"><span class="nav-icon">🗂️</span> Todo o estoque</button>
+</nav>
+
+<main class="main">
+
+<!-- PAINEL -->
+<div id="panel-dashboard" class="panel active">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.25rem">
+    <div class="page-title" style="margin:0">Painel geral</div>
+    <span id="dash-updated" style="font-size:12px;color:var(--tx3)"></span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem" id="dash-kpis"></div>
+  <div id="dash-banner"></div>
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:12px;margin-bottom:12px">
+    <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem 1rem">
+      <div class="card-title" style="text-align:center">Saúde do estoque</div>
+      <svg id="gauge-svg" viewBox="0 0 160 160" width="150" height="150" style="margin:8px 0"></svg>
+      <div id="gauge-label" style="text-align:center;font-size:13px;color:var(--tx2)"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Últimas movimentações</div>
+      <div id="dash-mov"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Estoque atual — todos os medicamentos</div>
+    <div id="dash-bars"></div>
+  </div>
+</div>
+
+<!-- TIRZEPATIDA DASHBOARD -->
+<div id="panel-tirz-dash" class="panel">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.25rem">
+    <div class="page-title" style="margin:0">Tirzepatida — painel</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem" id="tirz-kpis"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="card">
+      <div class="card-title">Saldo por marca</div>
+      <div id="tirz-marcas"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Doses por semana — junho/26</div>
+      <div style="position:relative;height:160px"><canvas id="tirz-chart" role="img" aria-label="Doses por semana"></canvas></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card">
+      <div class="card-title">Histórico de ampolas</div>
+      <div id="tirz-amp-mini"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pacientes com mais aplicações</div>
+      <div id="tirz-top-pac"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ALERTAS -->
+<div id="panel-alertas" class="panel">
+  <div class="page-title">Alertas de estoque</div>
+  <div id="alert-list"></div>
+</div>
+
+<!-- MOVIMENTAÇÕES -->
+<div id="panel-mov" class="panel">
+  <div class="page-title">Movimentações — remédios</div>
+  <div class="card">
+    <div class="frow">
+      <input type="text" id="f-mov-txt" placeholder="🔍 Buscar produto ou paciente..." oninput="renderMov()">
+      <select id="f-mov-tipo" onchange="renderMov()">
+        <option value="">Entradas e saídas</option>
+        <option value="ENTRADA">Entradas</option>
+        <option value="SAIDA">Saídas</option>
+      </select>
+      <select id="f-mov-prod" onchange="renderMov()"><option value="">Todos os produtos</option></select>
+    </div>
+    <div class="tw"><table id="t-mov">
+      <thead><tr><th>#</th><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Und</th><th>Valor Unit.</th><th>Paciente / Obs</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- REGISTRAR ENTRADA -->
+<div id="panel-reg-entrada" class="panel">
+  <div class="page-title">Registrar entrada</div>
+  <div class="card">
+    <div class="fgrid">
+      <div class="field"><label>Data</label><input type="date" id="re-data"></div>
+      <div class="field"><label>Produto</label><select id="re-prod"></select></div>
+      <div class="field"><label>Quantidade</label><input type="number" id="re-qty" min="1" placeholder="Ex: 10"></div>
+      <div class="field"><label>Unidade</label><input type="text" id="re-und" placeholder="AP, ML, UN..."></div>
+      <div class="field"><label>Valor unitário (R$)</label><input type="number" id="re-vunit" min="0" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Observação</label><input type="text" id="re-obs" placeholder="Opcional"></div>
+    </div>
+    <div class="faction">
+      <button class="btn btn-g" onclick="limpar('re')">Limpar</button>
+      <button class="btn btn-p" onclick="regEntrada()">✓ Registrar entrada</button>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTRAR SAÍDA -->
+<div id="panel-reg-saida" class="panel">
+  <div class="page-title">Registrar saída</div>
+  <div class="card">
+    <div class="fgrid">
+      <div class="field"><label>Data</label><input type="date" id="rs-data"></div>
+      <div class="field"><label>Produto</label><select id="rs-prod"></select></div>
+      <div class="field"><label>Quantidade</label><input type="number" id="rs-qty" min="1" placeholder="Ex: 1"></div>
+      <div class="field"><label>Paciente / Destino</label><input type="text" id="rs-obs" placeholder="Nome do paciente"></div>
+    </div>
+    <div class="faction">
+      <button class="btn btn-g" onclick="limpar('rs')">Limpar</button>
+      <button class="btn btn-p" onclick="regSaida()">✓ Registrar saída</button>
+    </div>
+  </div>
+</div>
+
+<!-- TIRZ AMPOLAS -->
+<div id="panel-tirz-amp" class="panel">
+  <div class="page-title">Tirzepatida — ampolas</div>
+  <div class="card">
+    <div class="frow">
+      <input type="text" id="f-amp-txt" placeholder="🔍 Buscar..." oninput="renderAmp()">
+      <select id="f-amp-marca" onchange="renderAmp()">
+        <option value="">Todas as marcas</option>
+        <option value="STIN">STIN</option>
+        <option value="REVALIFE">REVALIFE</option>
+      </select>
+      <select id="f-amp-tipo" onchange="renderAmp()">
+        <option value="">Entradas e saídas</option>
+        <option value="entrada">Entradas</option>
+        <option value="saida">Saídas</option>
+      </select>
+    </div>
+    <div class="tw"><table id="t-amp">
+      <thead><tr><th>#</th><th>Data</th><th>Tipo</th><th>Qtd</th><th>Marca</th><th>Observação</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- TIRZ DOSES -->
+<div id="panel-tirz-dose" class="panel">
+  <div class="page-title">Tirzepatida — doses aplicadas</div>
+  <div class="card">
+    <div class="frow">
+      <input type="text" id="f-dose-txt" placeholder="🔍 Buscar paciente..." oninput="renderDose()">
+      <input type="date" id="f-dose-de" oninput="renderDose()">
+      <input type="date" id="f-dose-ate" oninput="renderDose()">
+    </div>
+    <div class="tw"><table id="t-dose">
+      <thead><tr><th>#</th><th>Data</th><th>Paciente</th><th>Dose</th><th>Observação</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- TIRZ NOVA AMP -->
+<div id="panel-tirz-nova-amp" class="panel">
+  <div class="page-title">Tirzepatida — nova entrada de ampola</div>
+  <div class="card">
+    <div class="fgrid">
+      <div class="field"><label>Data</label><input type="date" id="ta-data"></div>
+      <div class="field"><label>Quantidade</label><input type="number" id="ta-qty" min="1" placeholder="Ex: 10"></div>
+      <div class="field"><label>Marca</label><select id="ta-marca"><option value="STIN">STIN</option><option value="REVALIFE">REVALIFE</option><option value="OUTRO">Outro</option></select></div>
+      <div class="field"><label>Observação</label><input type="text" id="ta-obs" placeholder="Ex: Pedido junho/2026"></div>
+    </div>
+    <div class="faction">
+      <button class="btn btn-g" onclick="limpar('ta')">Limpar</button>
+      <button class="btn btn-p" onclick="regAmp()">✓ Registrar entrada</button>
+    </div>
+  </div>
+</div>
+
+<!-- TIRZ SAÍDA AMP -->
+<div id="panel-tirz-saida-amp" class="panel">
+  <div class="page-title">Tirzepatida — saída de ampola</div>
+  <div class="card">
+    <div class="fgrid">
+      <div class="field"><label>Data de saída</label><input type="date" id="tsa-data"></div>
+      <div class="field"><label>Quantidade</label><input type="number" id="tsa-qty" min="1" value="1" placeholder="Ex: 1"></div>
+      <div class="field"><label>Marca</label><select id="tsa-marca"><option value="STIN">STIN</option><option value="REVALIFE">REVALIFE</option></select></div>
+      <div class="field"><label>Paciente / Destino</label><input type="text" id="tsa-obs" placeholder="Ex: Paciente João Silva"></div>
+    </div>
+    <div id="tsa-saldo" style="font-size:12px;color:var(--tx2);margin-bottom:.75rem;padding:.5rem .75rem;background:var(--bg);border-radius:var(--r)">
+      Saldo atual sendo calculado...
+    </div>
+    <div class="faction">
+      <button class="btn btn-g" onclick="limpar('tsa')">Limpar</button>
+      <button class="btn btn-p" onclick="regSaidaAmp()">✓ Registrar saída</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(28,21,48,.55);z-index:500;align-items:center;justify-content:center">
+  <div style="background:var(--surf);border-radius:var(--rl);padding:1.75rem;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:1.25rem" id="edit-title">Editar registro</div>
+    <div id="edit-fields" style="display:grid;gap:10px"></div>
+    <div style="display:flex;gap:8px;justify-content:space-between;padding-top:1rem;border-top:1px solid var(--bdr);margin-top:1rem">
+      <button class="btn" style="background:var(--red-bg);color:var(--red);border:1px solid #F7C1C1" onclick="deleteRecord()">🗑 Excluir</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-g" onclick="closeEdit()">Cancelar</button>
+        <button class="btn btn-p" onclick="saveEdit()">✓ Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="panel-tirz-nova-dose" class="panel">
+  <div class="page-title">Tirzepatida — registrar dose</div>
+  <div class="card">
+    <div class="fgrid">
+      <div class="field"><label>Data</label><input type="date" id="td-data"></div>
+      <div class="field"><label>Paciente</label><input type="text" id="td-pac" placeholder="Nome completo"></div>
+      <div class="field"><label>Dose</label><input type="text" id="td-dose" placeholder="Ex: 20ui"></div>
+      <div class="field"><label>Observação</label><input type="text" id="td-obs" placeholder="Opcional"></div>
+    </div>
+    <div class="faction">
+      <button class="btn btn-g" onclick="limpar('td')">Limpar</button>
+      <button class="btn btn-p" onclick="regDose()">✓ Registrar dose</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVENTÁRIO -->
+<div id="panel-inv" class="panel">
+  <div class="page-title">Inventário completo</div>
+  <div class="frow" style="margin-bottom:1rem">
+    <input type="text" id="f-inv-txt" placeholder="🔍 Buscar produto..." oninput="renderInv()">
+    <select id="f-inv-cat" onchange="renderInv()"><option value="">Todas as categorias</option></select>
+  </div>
+  <div class="stock-grid" id="inv-grid"></div>
+</div>
+
+</main>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════════════════════════
+
+// Inventário atual (relatorio 3)
+const inventario = [
+  // REMÉDIOS
+  {cat:"REMÉDIOS",nome:"ACIDO ALFA LIPOICO",atual:136,und:"ML",min:24},
+  {cat:"REMÉDIOS",nome:"ADEK 300",atual:1,und:"AP",min:5},
+  {cat:"REMÉDIOS",nome:"ANESTESICO",atual:6,und:"AP",min:3},
+  {cat:"REMÉDIOS",nome:"CIPIONATO DE TESTOSTERONA",atual:8,und:"ML",min:5},
+  {cat:"REMÉDIOS",nome:"COENZIMA Q10",atual:41,und:"AP",min:10},
+  {cat:"REMÉDIOS",nome:"COMPLEXO B (B2+B3+B5+B6) IM,EV",atual:14,und:"AP",min:10},
+  {cat:"REMÉDIOS",nome:"CURCUMINA",atual:9,und:"AP",min:5},
+  {cat:"REMÉDIOS",nome:"HMB",atual:31,und:"AP",min:5},
+  {cat:"REMÉDIOS",nome:"L-GLUTATHION",atual:9,und:"AP",min:5},
+  {cat:"REMÉDIOS",nome:"MIX TESTO",atual:20,und:"ML",min:10},
+  {cat:"REMÉDIOS",nome:"MOROSIL",atual:25,und:"AP",min:10},
+  {cat:"REMÉDIOS",nome:"MOUNJARO CANETA 15 MG",atual:0,und:"UN",min:1},
+  {cat:"REMÉDIOS",nome:"NAC",atual:7,und:"AP",min:5},
+  {cat:"REMÉDIOS",nome:"NANDROLONA",atual:8.5,und:"ML",min:5},
+  {cat:"REMÉDIOS",nome:"NORIPURUM",atual:10,und:"AP",min:3},
+  {cat:"REMÉDIOS",nome:"POOL DE AMINOACIDOS",atual:7,und:"AP",min:5},
+  {cat:"REMÉDIOS",nome:"PQQ",atual:10,und:"AP",min:5},
+  {cat:"REMÉDIOS",nome:"SEMAGLUTIDA",atual:9.85,und:"ML",min:5},
+  {cat:"REMÉDIOS",nome:"TIRZEPATIDA",atual:11.44,und:"ML",min:5},
+  {cat:"REMÉDIOS",nome:"TRIO METILADOR",atual:1,und:"AP",min:3},
+  {cat:"REMÉDIOS",nome:"VITAMINA B12",atual:29,und:"AP",min:10},
+  {cat:"REMÉDIOS",nome:"VITAMINA C",atual:1245,und:"ML",min:100},
+  {cat:"REMÉDIOS",nome:"VITAMINA D3 (COLECALCIFEROL)",atual:12,und:"AP",min:10},
+];
+
+// Movimentações de remédios (relatorio 2)
+const movData = [
+  {data:"03/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:10,und:"ML",vunit:197,obs:"LUIS HENRIQUE BELEM"},
+  {data:"01/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:10,und:"ML",vunit:197,obs:"DRA REBECCA MARIA"},
+  {data:"03/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:10,und:"ML",vunit:197,obs:"WALESCA CASTRO"},
+  {data:"05/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:24,und:"ML",vunit:197,obs:"ALBERTO MAGNO"},
+  {data:"09/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:10,und:"ML",vunit:197,obs:"ROSANGELA ALMEIDA"},
+  {data:"12/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:10,und:"ML",vunit:197,obs:"GABRIELLE SIQUEIRA SILVA"},
+  {data:"16/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:10,und:"ML",vunit:197,obs:"SUDARIO MENEZES"},
+  {data:"17/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:14,und:"ML",vunit:197,obs:"LUIS HENRIQUE BELEM"},
+  {data:"18/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:24,und:"ML",vunit:197,obs:"TATIANA CABRAL"},
+  {data:"20/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:12,und:"ML",vunit:197,obs:"TIAGO AUGUSTO"},
+  {data:"20/06/2026",prod:"ACIDO ALFA LIPOICO",tipo:"SAIDA",qty:12,und:"ML",vunit:197,obs:"SONIA IVANIR"},
+  {data:"11/06/2026",prod:"ADEK 300",tipo:"ENTRADA",qty:4,und:"AP",vunit:0,obs:""},
+  {data:"11/06/2026",prod:"ADEK 300",tipo:"SAIDA",qty:1,und:"AP",vunit:0,obs:"JOSÉ VALTER"},
+  {data:"16/06/2026",prod:"ADEK 300",tipo:"SAIDA",qty:1,und:"AP",vunit:0,obs:"SUSANA MARTINS"},
+  {data:"18/06/2026",prod:"ADEK 300",tipo:"SAIDA",qty:1,und:"AP",vunit:0,obs:"EMPRÉSTIMO P/ LOTUS"},
+  {data:"16/06/2026",prod:"ANESTESICO",tipo:"SAIDA",qty:4,und:"AP",vunit:1144,obs:"IMPLANTES"},
+  {data:"18/06/2026",prod:"CIPIONATO DE TESTOSTERONA",tipo:"ENTRADA",qty:10,und:"ML",vunit:1925,obs:""},
+  {data:"20/06/2026",prod:"CIPIONATO DE TESTOSTERONA",tipo:"SAIDA",qty:2,und:"ML",vunit:1925,obs:"JOSE VALTER"},
+  {data:"15/06/2026",prod:"COENZIMA Q10",tipo:"ENTRADA",qty:30,und:"AP",vunit:2900,obs:"28/07/25"},
+  {data:"02/06/2026",prod:"COENZIMA Q10",tipo:"SAIDA",qty:1,und:"AP",vunit:2900,obs:"TAISE VITOR"},
+  {data:"06/06/2026",prod:"COENZIMA Q10",tipo:"SAIDA",qty:1,und:"AP",vunit:2900,obs:"RAFAELA BATISTA"},
+  {data:"09/06/2026",prod:"COENZIMA Q10",tipo:"SAIDA",qty:1,und:"AP",vunit:2900,obs:"JULIA MARTINS"},
+  {data:"09/06/2026",prod:"COENZIMA Q10",tipo:"SAIDA",qty:1,und:"AP",vunit:2900,obs:"ADRIANA MARTINS"},
+  {data:"09/06/2026",prod:"COENZIMA Q10",tipo:"SAIDA",qty:1,und:"AP",vunit:2900,obs:"IONE DE SOUZA"},
+  {data:"15/06/2026",prod:"COENZIMA Q10",tipo:"SAIDA",qty:1,und:"AP",vunit:2900,obs:"EDNEIDA ROCHA"},
+  {data:"16/06/2026",prod:"COENZIMA Q10",tipo:"SAIDA",qty:1,und:"AP",vunit:2900,obs:"TAISE VITOR"},
+  {data:"02/06/2026",prod:"CURCUMINA",tipo:"SAIDA",qty:1,und:"AP",vunit:1430,obs:"ADRIANA MARTINS"},
+  {data:"02/06/2026",prod:"CURCUMINA",tipo:"SAIDA",qty:1,und:"AP",vunit:1430,obs:"JULIA MARTINS"},
+  {data:"03/06/2026",prod:"CURCUMINA",tipo:"SAIDA",qty:1,und:"AP",vunit:1430,obs:"ISABEL REGINA"},
+  {data:"06/06/2026",prod:"CURCUMINA",tipo:"SAIDA",qty:1,und:"AP",vunit:1430,obs:"CLAUDIA GRASSI"},
+  {data:"09/06/2026",prod:"CURCUMINA",tipo:"SAIDA",qty:1,und:"AP",vunit:1430,obs:"TAISE VITOR"},
+  {data:"12/06/2026",prod:"CURCUMINA",tipo:"SAIDA",qty:1,und:"AP",vunit:1430,obs:"GABRIELLE SIQUEIRA SILVA"},
+  {data:"15/06/2026",prod:"CURCUMINA",tipo:"SAIDA",qty:1,und:"AP",vunit:1430,obs:"CLAUDIA GRASSI"},
+  {data:"16/06/2026",prod:"CURCUMINA",tipo:"SAIDA",qty:1,und:"AP",vunit:1430,obs:"JULIA MARTINS"},
+  {data:"03/06/2026",prod:"HMB",tipo:"SAIDA",qty:1,und:"AP",vunit:1310,obs:"ISABEL REGINA"},
+  {data:"09/06/2026",prod:"HMB",tipo:"SAIDA",qty:1,und:"AP",vunit:1310,obs:"IONE DE SOUZA"},
+  {data:"11/06/2026",prod:"HMB",tipo:"SAIDA",qty:1,und:"AP",vunit:1310,obs:"TATIANA DUTRA"},
+  {data:"18/06/2026",prod:"HMB",tipo:"SAIDA",qty:1,und:"AP",vunit:1310,obs:"TATIANA DUTRA"},
+  {data:"18/06/2026",prod:"HMB",tipo:"SAIDA",qty:1,und:"AP",vunit:1310,obs:"ISABEL REGINA"},
+  {data:"18/06/2026",prod:"MIX TESTO",tipo:"ENTRADA",qty:20,und:"ML",vunit:3812,obs:""},
+  {data:"16/06/2026",prod:"MOROSIL",tipo:"ENTRADA",qty:30,und:"AP",vunit:2450,obs:""},
+  {data:"01/06/2026",prod:"MOROSIL",tipo:"SAIDA",qty:1,und:"AP",vunit:2500,obs:"DRA REBECCA MARIA"},
+  {data:"03/06/2026",prod:"MOROSIL",tipo:"SAIDA",qty:1,und:"AP",vunit:0,obs:"WALESCA CASTRO"},
+  {data:"16/06/2026",prod:"MOROSIL",tipo:"SAIDA",qty:1,und:"AP",vunit:2450,obs:"ADRIANA MARTINS"},
+  {data:"17/06/2026",prod:"MOROSIL",tipo:"SAIDA",qty:1,und:"AP",vunit:2450,obs:"LUIS HENRIQUE BELEM"},
+  {data:"18/06/2026",prod:"MOROSIL",tipo:"SAIDA",qty:1,und:"AP",vunit:2450,obs:"GABRYELLA ABRANTES"},
+  {data:"19/06/2026",prod:"MOROSIL",tipo:"SAIDA",qty:1,und:"AP",vunit:2450,obs:"SUDARIO MENEZES"},
+  {data:"19/06/2026",prod:"MOROSIL",tipo:"SAIDA",qty:1,und:"AP",vunit:2450,obs:"GABRIELLE SIQUEIRA SILVA"},
+  {data:"01/06/2026",prod:"NANDROLONA",tipo:"SAIDA",qty:2,und:"ML",vunit:2965,obs:"CARLOS ANTONIO"},
+  {data:"15/06/2026",prod:"NANDROLONA",tipo:"SAIDA",qty:2,und:"ML",vunit:2965,obs:"CARLOS ANTONIO"},
+  {data:"16/06/2026",prod:"NORIPURUM",tipo:"ENTRADA",qty:10,und:"AP",vunit:1986,obs:""},
+  {data:"01/06/2026",prod:"NORIPURUM",tipo:"SAIDA",qty:1,und:"AP",vunit:1985,obs:"MARIA APARECIDA"},
+  {data:"05/06/2026",prod:"NORIPURUM",tipo:"SAIDA",qty:1,und:"AP",vunit:1985,obs:"RENATA VALENTE"},
+  {data:"08/06/2026",prod:"NORIPURUM",tipo:"SAIDA",qty:1,und:"AP",vunit:1985,obs:"MARIA APARECIDA ARAUJO"},
+  {data:"15/06/2026",prod:"NORIPURUM",tipo:"SAIDA",qty:1,und:"AP",vunit:1985,obs:"MARIA APARECIDA ARAUJO"},
+  {data:"15/06/2026",prod:"NORIPURUM",tipo:"SAIDA",qty:1,und:"AP",vunit:1985,obs:"EDNEIDA ROCHA"},
+  {data:"19/06/2026",prod:"NORIPURUM",tipo:"SAIDA",qty:1,und:"AP",vunit:1986,obs:"SUDARIO MENEZES"},
+  {data:"05/06/2026",prod:"SEMAGLUTIDA",tipo:"SAIDA",qty:2,und:"ML",vunit:22500,obs:"STEPHANY RAMOS/REVITÁ"},
+  {data:"18/06/2026",prod:"TIRZEPATIDA",tipo:"ENTRADA",qty:2,und:"ML",vunit:0,obs:""},
+  {data:"18/06/2026",prod:"TIRZEPATIDA",tipo:"ENTRADA",qty:14,und:"ML",vunit:50000,obs:""},
+  {data:"11/06/2026",prod:"TRIO METILADOR",tipo:"ENTRADA",qty:2,und:"AP",vunit:0,obs:""},
+  {data:"09/06/2026",prod:"TRIO METILADOR",tipo:"SAIDA",qty:1,und:"AP",vunit:6080,obs:"IONE DE SOUZA"},
+  {data:"16/06/2026",prod:"TRIO METILADOR",tipo:"SAIDA",qty:1,und:"AP",vunit:0,obs:"SUSANA MARTINS"},
+  {data:"15/06/2026",prod:"VITAMINA B12",tipo:"ENTRADA",qty:30,und:"AP",vunit:615,obs:""},
+  {data:"02/06/2026",prod:"VITAMINA B12",tipo:"SAIDA",qty:1,und:"AP",vunit:1995,obs:"MARIANA CAETANO"},
+  {data:"09/06/2026",prod:"VITAMINA B12",tipo:"SAIDA",qty:1,und:"AP",vunit:1995,obs:"ROSANGELA ALMEIDA"},
+  {data:"11/06/2026",prod:"VITAMINA B12",tipo:"SAIDA",qty:1,und:"AP",vunit:1995,obs:"ANGÉLICA CRISTINA"},
+  {data:"15/06/2026",prod:"VITAMINA B12",tipo:"SAIDA",qty:1,und:"AP",vunit:1995,obs:"CRISTIANO FABIO"},
+  {data:"15/06/2026",prod:"VITAMINA B12",tipo:"SAIDA",qty:1,und:"AP",vunit:615,obs:"EDNEIDA ROCHA"},
+  {data:"16/06/2026",prod:"VITAMINA B12",tipo:"SAIDA",qty:1,und:"AP",vunit:615,obs:"LENICE LIMA"},
+  {data:"17/06/2026",prod:"VITAMINA B12",tipo:"SAIDA",qty:1,und:"AP",vunit:615,obs:"ANDREA SILVA"},
+  {data:"18/06/2026",prod:"VITAMINA C",tipo:"ENTRADA",qty:500,und:"ML",vunit:60,obs:""},
+  {data:"11/06/2026",prod:"VITAMINA C",tipo:"SAIDA",qty:2,und:"ML",vunit:69,obs:"ANGÉLICA CRISTINA"},
+  {data:"15/06/2026",prod:"VITAMINA C",tipo:"SAIDA",qty:2,und:"ML",vunit:69,obs:"ERICA CAETANO"},
+  {data:"18/06/2026",prod:"VITAMINA D3 (COLECALCIFEROL)",tipo:"ENTRADA",qty:10,und:"AP",vunit:2649,obs:"Validade: 13/08/25"},
+  {data:"02/06/2026",prod:"VITAMINA D3 (COLECALCIFEROL)",tipo:"SAIDA",qty:1,und:"AP",vunit:1233,obs:"MARIANA CAETANO"},
+  {data:"05/06/2026",prod:"VITAMINA D3 (COLECALCIFEROL)",tipo:"SAIDA",qty:1,und:"AP",vunit:1233,obs:"FELIPE NAPOLEAO"},
+  {data:"09/06/2026",prod:"VITAMINA D3 (COLECALCIFEROL)",tipo:"SAIDA",qty:1,und:"AP",vunit:1233,obs:"ROSANGELA ALMEIDA"},
+  {data:"10/06/2026",prod:"VITAMINA D3 (COLECALCIFEROL)",tipo:"SAIDA",qty:1,und:"AP",vunit:1233,obs:"TATIANE VIDAL"},
+  {data:"15/06/2026",prod:"VITAMINA D3 (COLECALCIFEROL)",tipo:"SAIDA",qty:1,und:"AP",vunit:1233,obs:"ANDRESA NOGUEIRA"},
+  {data:"16/06/2026",prod:"VITAMINA D3 (COLECALCIFEROL)",tipo:"SAIDA",qty:1,und:"AP",vunit:1233,obs:"LENICE LIMA"},
+  {data:"18/06/2026",prod:"VITAMINA D3 (COLECALCIFEROL)",tipo:"SAIDA",qty:1,und:"AP",vunit:1233,obs:"TATIANA CABRAL"},
+  {data:"18/06/2026",prod:"VITAMINA D3 (COLECALCIFEROL)",tipo:"SAIDA",qty:6,und:"AP",vunit:1233,obs:"EMPRESTIMO P/ MURILLO LEÃO"},
+];
+
+// Tirzepatida ampolas
+const ampData = [
+  {data:"11/05/2026",tipo:"entrada",qty:11,marca:"STIN",obs:"Pedido com 21 unidades (6-LOTUS, 1-RODRIGO, 3-HUDSON)"},
+  {data:"11/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Paciente Carlos Armando - compra 08/5/26"},
+  {data:"11/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Paciente Dayane S. Vieira - compra 08/5/26"},
+  {data:"12/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Dr Juan Matias"},
+  {data:"13/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Uso interno da clínica"},
+  {data:"14/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Paciente Heinny Cardoso"},
+  {data:"15/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Uso interno da clínica"},
+  {data:"15/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Paciente Aline Sthefane"},
+  {data:"15/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Sheyla - Lotus"},
+  {data:"21/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Uso interno da clínica"},
+  {data:"21/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Paciente Tiago Augusto"},
+  {data:"25/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Uso interno da clínica"},
+  {data:"30/05/2026",tipo:"entrada",qty:14,marca:"STIN",obs:"Pedido com 20 unidades (4-LOTUS, 2-HUDSON)"},
+  {data:"30/05/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Mayara Costa"},
+  {data:"01/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Uso interno da clínica"},
+  {data:"01/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Paciente Luciana Soares"},
+  {data:"01/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Paciente Danielly Veridiana"},
+  {data:"01/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Luis Henrique Belem"},
+  {data:"02/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Uso interno da clínica"},
+  {data:"03/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Uso interno da clínica"},
+  {data:"05/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Gabryelle Abrantes"},
+  {data:"05/06/2026",tipo:"entrada",qty:2,marca:"REVALIFE",obs:"Pedido com 5 unidades (2-LOTUS, 1-Dra Bianca)"},
+  {data:"08/06/2026",tipo:"saida",qty:3,marca:"REVALIFE",obs:"Saída Lucas Grassi (São Paulo)"},
+  {data:"11/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Uso interno da clínica"},
+  {data:"11/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Paciente Daniele Dalla"},
+  {data:"12/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Maria Aparecida Farias de Souza"},
+  {data:"15/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Priscila (Lucas Grassi)"},
+  {data:"16/06/2026",tipo:"saida",qty:1,marca:"STIN",obs:"Uso interno da clínica"},
+  {data:"18/06/2026",tipo:"entrada",qty:6,marca:"REVALIFE",obs:"Pedido com 11 unidades (4-LOTUS, 1-VITORIA)"},
+  {data:"22/06/2026",tipo:"saida",qty:1,marca:"REVALIFE",obs:"Paciente José Maria Seixas Fonteles"},
+  {data:"22/06/2026",tipo:"saida",qty:1,marca:"REVALIFE",obs:"Empréstimo p/ Vitoria"},
+  {data:"22/06/2026",tipo:"saida",qty:1,marca:"REVALIFE",obs:"Uso interno da clínica"},
+];
+
+// Doses Tirzepatida
+const doseData = [
+  {data:"01/06/2026",paciente:"SILVANEIDE DOS SANTOS LIMA",dose:"20ui",obs:""},
+  {data:"01/06/2026",paciente:"LÁZARA GONÇALVES COELHO",dose:"30ui",obs:""},
+  {data:"01/06/2026",paciente:"CLAUDIA DE TOMASI GRASSI ALENCAR",dose:"10ui",obs:""},
+  {data:"01/06/2026",paciente:"RAQUEL MENEZES SAMPAIO G. CARNEIRO",dose:"10ui",obs:""},
+  {data:"01/06/2026",paciente:"ALEXANDRE GIL BATISTA MEDEIROS",dose:"10ui",obs:""},
+  {data:"01/06/2026",paciente:"CINTIA MACEDO MATOS",dose:"20ui",obs:""},
+  {data:"01/06/2026",paciente:"DARIANE ISABEL DORNELES SCHNEIDER",dose:"26ui",obs:""},
+  {data:"01/06/2026",paciente:"CAROLINA MARQUES DE SOUZA",dose:"10ui",obs:""},
+  {data:"01/06/2026",paciente:"MARIA APARECIDA DE ARAÚJO",dose:"10ui",obs:""},
+  {data:"02/06/2026",paciente:"DANIELLE CANDIA BARRA",dose:"5ui",obs:""},
+  {data:"02/06/2026",paciente:"ADRIANA MARTINS DE ARAUJO",dose:"25ui",obs:""},
+  {data:"02/06/2026",paciente:"JULIA MARTINS GOMES DE MORAES",dose:"50ui",obs:""},
+  {data:"02/06/2026",paciente:"TAISE VITOR JESUS",dose:"20ui",obs:""},
+  {data:"02/06/2026",paciente:"HUDSON ANTONIO DE JESUS",dose:"55ui",obs:""},
+  {data:"03/06/2026",paciente:"ISABEL REGINA BARBALHO GONÇALVES",dose:"5ui",obs:""},
+  {data:"03/06/2026",paciente:"TAMIRES DE OLIVEIRA MARTINS",dose:"10ui",obs:""},
+  {data:"03/06/2026",paciente:"THAMIRIS DA SILVA AZEVEDO",dose:"10ui",obs:""},
+  {data:"03/06/2026",paciente:"WALESCA CASTRO DE SOUZA",dose:"10ui",obs:""},
+  {data:"03/06/2026",paciente:"CLOVIS RODRIGUES DO NASCIMENTO",dose:"10ui",obs:""},
+  {data:"05/06/2026",paciente:"MICELI DE OLIVEIRA BARROS",dose:"10ui",obs:""},
+  {data:"05/06/2026",paciente:"ANNELISE CRISTHINA DIAS COSTA",dose:"10ui",obs:""},
+  {data:"05/06/2026",paciente:"FELIPE NAPOLEÃO SANTOS FERREIRA",dose:"10ui",obs:""},
+  {data:"06/06/2026",paciente:"CLAUDIA DE TOMASI GRASSI ALENCAR",dose:"10ui",obs:""},
+  {data:"06/06/2026",paciente:"ANA CAROLINE ARAUJO",dose:"10ui",obs:""},
+  {data:"06/06/2026",paciente:"SILVANEIDE DOS SANTOS LIMA",dose:"20ui",obs:""},
+  {data:"08/06/2026",paciente:"MARIA APARECIDA DE ARAÚJO",dose:"10ui",obs:""},
+  {data:"08/06/2026",paciente:"ANTONIA MARIA DE CARVALHO DA SILVA SOUSA",dose:"10ui",obs:""},
+  {data:"08/06/2026",paciente:"REGINA LÚCIA DE ALMEIDA FONSECA",dose:"10ui",obs:""},
+  {data:"08/06/2026",paciente:"CINTIA MACEDO MATOS",dose:"20ui",obs:""},
+  {data:"08/06/2026",paciente:"DARIANE ISABEL DORNELES SCHNEIDER",dose:"26ui",obs:""},
+  {data:"08/06/2026",paciente:"JESSICA DE ALMEIDA MARTINS AZEVEDO",dose:"30ui",obs:""},
+  {data:"08/06/2026",paciente:"NATALIA APARECIDA CARVALHO",dose:"10ui",obs:""},
+  {data:"09/06/2026",paciente:"JULIA MARTINS GOMES DE MORAES",dose:"55ui",obs:""},
+  {data:"09/06/2026",paciente:"ADRIANA MARTINS DE ARAUJO",dose:"30ui",obs:""},
+  {data:"09/06/2026",paciente:"TAISE VITOR JESUS",dose:"20ui",obs:""},
+  {data:"09/06/2026",paciente:"LETÍCIA LAYERE MARTINS DOS SANTOS CASCUDO",dose:"7ui",obs:""},
+  {data:"09/06/2026",paciente:"CLOVIS RODRIGUES DO NASCIMENTO",dose:"20ui",obs:""},
+  {data:"10/06/2026",paciente:"WALESCA CASTRO DE SOUZA",dose:"10ui",obs:""},
+  {data:"10/06/2026",paciente:"TAMIRES DE OLIVEIRA MARTINS",dose:"10ui",obs:""},
+  {data:"10/06/2026",paciente:"MARGARETH REMÍGIO VIEIRA REBELO SIMÃO",dose:"10ui",obs:""},
+  {data:"11/06/2026",paciente:"CARLOS ALBERTO DE PAULA",dose:"5ui",obs:""},
+  {data:"11/06/2026",paciente:"MICELI DE OLIVEIRA BARROS",dose:"10ui",obs:""},
+  {data:"11/06/2026",paciente:"ANNELISE CRISTHINA DIAS COSTA",dose:"10ui",obs:""},
+  {data:"11/06/2026",paciente:"HUDSON ANTONIO DE JESUS",dose:"35ui",obs:""},
+  {data:"11/06/2026",paciente:"HUDSON ANTONIO DE JESUS",dose:"20ui",obs:"Amp nova"},
+  {data:"12/06/2026",paciente:"GABRIELLE SIQUEIRA SILVA",dose:"40ui",obs:""},
+  {data:"13/06/2026",paciente:"ANA CAROLINA ARAÚJO PEREIRA DA SILVA",dose:"10ui",obs:""},
+  {data:"13/06/2026",paciente:"THAMIRIS DA SILVA AZEVEDO",dose:"10ui",obs:""},
+  {data:"15/06/2026",paciente:"MARIA APARECIDA DE ARAÚJO",dose:"10ui",obs:""},
+  {data:"15/06/2026",paciente:"JESSICA DE ALMEIDA MARTINS AZEVEDO",dose:"30ui",obs:""},
+  {data:"15/06/2026",paciente:"CINTIA MACEDO MATOS",dose:"20ui",obs:""},
+  {data:"15/06/2026",paciente:"DARIANE ISABEL DORNELES SCHNEIDER",dose:"26ui",obs:""},
+  {data:"15/06/2026",paciente:"CLAUDIA DE TOMASI GRASSI ALENCAR",dose:"10ui",obs:""},
+  {data:"16/06/2026",paciente:"TAISE VITOR JESUS",dose:"20ui",obs:""},
+  {data:"16/06/2026",paciente:"ADRIANA MARTINS DE ARAUJO",dose:"30ui",obs:""},
+  {data:"16/06/2026",paciente:"JULIA MARTINS GOMES DE MORAES",dose:"55ui",obs:""},
+  {data:"16/06/2026",paciente:"FELIPE NAPOLEÃO",dose:"10ui",obs:"Amp nova"},
+  {data:"16/06/2026",paciente:"CLOVIS RODRIGUES DO NASCIMENTO",dose:"20ui",obs:""},
+  {data:"16/06/2026",paciente:"MAIANE NERES GUIMARAES",dose:"10ui",obs:""},
+  {data:"17/06/2026",paciente:"MARGARETH REMÍGIO VIEIRA REBELO SIMÃO",dose:"10ui",obs:""},
+  {data:"17/06/2026",paciente:"TAMIRES DE OLIVEIRA MARTINS",dose:"10ui",obs:""},
+  {data:"18/06/2026",paciente:"ISABEL REGINA BARBALHO GONÇALVES",dose:"5ui",obs:""},
+  {data:"18/06/2026",paciente:"MICELI DE OLIVEIRA BARROS",dose:"20ui",obs:""},
+  {data:"19/06/2026",paciente:"HUDSON ANTONIO DE JESUS",dose:"55ui",obs:""},
+  {data:"19/06/2026",paciente:"ANNELISE CRISTHINA DIAS COSTA",dose:"10ui",obs:""},
+  {data:"19/06/2026",paciente:"GABRIELLE SIQUEIRA SILVA",dose:"45ui",obs:""},
+  {data:"19/06/2026",paciente:"REGINA LÚCIA DE ALMEIDA FONSECA",dose:"10ui",obs:""},
+  {data:"20/06/2026",paciente:"THAMIRIS DA SILVA AZEVEDO",dose:"10ui",obs:""},
+  {data:"20/06/2026",paciente:"ANA CAROLINA ARAÚJO PEREIRA DA SILVA",dose:"10ui",obs:""},
+  {data:"22/06/2026",paciente:"ALEXANDRE GIL BATISTA MEDEIROS",dose:"10ui",obs:""},
+  {data:"22/06/2026",paciente:"CINTIA MACEDO MATOS",dose:"10ui",obs:""},
+  {data:"22/06/2026",paciente:"JESSICA DE ALMEIDA MARTINS AZEVEDO",dose:"30ui",obs:"Amp nova"},
+  {data:"22/06/2026",paciente:"DARIANE ISABEL DORNELES SCHNEIDER",dose:"10ui",obs:""},
+];
+
+// ════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════
+function status(item){
+  if(item.atual<=0) return 'alert';
+  if(item.atual<=item.min) return 'warn';
+  return 'ok';
+}
+function dotClass(item){
+  const s=status(item);
+  return s==='alert'?'dot dot-alert':s==='warn'?'dot dot-warn':'dot dot-ok';
+}
+function fmtNum(n){return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2})}
+function fmtBRL(n){return n?'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}):'—'}
+
+function toast(msg,err=false){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='show'+(err?' err':'');
+  clearTimeout(toast._t);toast._t=setTimeout(()=>el.className='',3000);
+}
+function setToday(id){
+  document.getElementById(id).value=new Date().toISOString().split('T')[0];
+}
+function limpar(p){
+  ['data','qty','prod','und','vunit','obs','marca','pac','dose'].forEach(f=>{
+    const el=document.getElementById(p+'-'+f);
+    if(!el)return;
+    el.tagName==='SELECT'?el.selectedIndex=0:el.value='';
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════════════════
+function renderDash(){
+  const alerts = inventario.filter(i=>status(i)!=='ok');
+  const zeroed = inventario.filter(i=>i.atual<=0).length;
+  const low    = inventario.filter(i=>i.atual>0&&i.atual<=i.min).length;
+  const ok     = inventario.filter(i=>status(i)==='ok').length;
+  const total  = inventario.length;
+  const saidas = movData.filter(r=>r.tipo==='SAIDA').length;
+  const entradas = movData.filter(r=>r.tipo==='ENTRADA').length;
+
+  // Date
+  document.getElementById('dash-updated').textContent =
+    'Atualizado em ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  // KPIs
+  document.getElementById('dash-kpis').innerHTML=`
+    <div class="metric" style="border-left:3px solid var(--purple)">
+      <div style="font-size:22px;margin-bottom:4px">💊</div>
+      <div class="metric-lbl">Medicamentos</div>
+      <div class="metric-val" style="color:var(--purple)">${total}</div>
+      <div class="metric-sub">itens cadastrados</div>
+    </div>
+    <div class="metric" style="border-left:3px solid ${ok===total?'var(--green)':'var(--tx3)'}">
+      <div style="font-size:22px;margin-bottom:4px">✅</div>
+      <div class="metric-lbl">Em dia</div>
+      <div class="metric-val ok">${ok}</div>
+      <div class="metric-sub">estoque adequado</div>
+    </div>
+    <div class="metric" style="border-left:3px solid ${low>0?'#EF9F27':'var(--tx3)'}">
+      <div style="font-size:22px;margin-bottom:4px">⚠️</div>
+      <div class="metric-lbl">Estoque baixo</div>
+      <div class="metric-val" style="color:${low>0?'#854F0B':'var(--tx)'}">${low}</div>
+      <div class="metric-sub">abaixo do mínimo</div>
+    </div>
+    <div class="metric" style="border-left:3px solid ${zeroed>0?'var(--red)':'var(--tx3)'}">
+      <div style="font-size:22px;margin-bottom:4px">🚨</div>
+      <div class="metric-lbl">Zerados</div>
+      <div class="metric-val ${zeroed>0?'alert':''}">${zeroed}</div>
+      <div class="metric-sub">sem estoque</div>
+    </div>
+  `;
+
+  // Alert banner
+  const banner = document.getElementById('dash-banner');
+  if(alerts.length>0){
+    const names = alerts.map(i=>`<span style="background:rgba(255,255,255,.25);padding:2px 8px;border-radius:4px;font-weight:600">${i.nome}</span>`).join(' ');
+    banner.innerHTML=`<div style="background:${zeroed>0?'var(--red)':'#854F0B'};color:#fff;border-radius:var(--rl);padding:.85rem 1.1rem;margin-bottom:12px;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:16px">${zeroed>0?'🚨':'⚠️'}</span>
+      <span style="font-weight:600">${zeroed>0?'Atenção — itens zerados:':'Estoque baixo:'}</span>
+      ${names}
+    </div>`;
+  } else {
+    banner.innerHTML=`<div style="background:var(--green-bg);color:var(--green);border-radius:var(--rl);padding:.75rem 1.1rem;margin-bottom:12px;font-size:13px;font-weight:600">✅ Todos os medicamentos com estoque adequado</div>`;
+  }
+
+  // Gauge (donut)
+  const pctOk = Math.round((ok/total)*100);
+  const r=60, cx=80, cy=80, circ=2*Math.PI*r;
+  const okArc = (ok/total)*circ;
+  const warnArc = (low/total)*circ;
+  const alertArc = (zeroed/total)*circ;
+  const gaugeColor = pctOk>=80?'#3B6D11':pctOk>=60?'#854F0B':'#A32D2D';
+  document.getElementById('gauge-svg').innerHTML=`
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#E2DDF0" stroke-width="18"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#EF9F27" stroke-width="18"
+      stroke-dasharray="${warnArc+okArc} ${circ}" stroke-dashoffset="${circ/4}" stroke-linecap="butt"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#3B6D11" stroke-width="18"
+      stroke-dasharray="${okArc} ${circ}" stroke-dashoffset="${circ/4}" stroke-linecap="butt"/>
+    ${zeroed>0?`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#A32D2D" stroke-width="18"
+      stroke-dasharray="${alertArc} ${circ}" stroke-dashoffset="${circ/4+(okArc+warnArc)*-1+circ}" stroke-linecap="butt"/>`:''}
+    <text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="28" font-weight="700" fill="${gaugeColor}">${pctOk}%</text>
+    <text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="11" fill="#7A6E91">saudável</text>
+  `;
+  document.getElementById('gauge-label').innerHTML=
+    `<span style="color:var(--green)">■</span> ${ok} ok &nbsp; <span style="color:#EF9F27">■</span> ${low} baixo &nbsp; <span style="color:var(--red)">■</span> ${zeroed} zerado`;
+
+  // Recent mov
+  const rec = [...movData].reverse().slice(0,8);
+  document.getElementById('dash-mov').innerHTML=`<table>
+    <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th></tr></thead>
+    <tbody>${rec.map(r=>`<tr>
+      <td style="color:var(--tx3)">${r.data}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.prod}</td>
+      <td><span class="pill ${r.tipo==='ENTRADA'?'pi':'po'}">${r.tipo==='ENTRADA'?'↑ Entrada':'↓ Saída'}</span></td>
+      <td>${r.qty} <span style="color:var(--tx3)">${r.und}</span></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+
+  // Horizontal bar chart for all meds
+  const sorted = [...inventario].sort((a,b)=>b.atual-a.atual);
+  const maxV = Math.max(...sorted.map(i=>Math.max(i.atual,i.min)),1);
+  document.getElementById('dash-bars').innerHTML=`<div style="display:grid;gap:7px">` +
+    sorted.map(i=>{
+      const s=status(i);
+      const barColor=s==='alert'?'var(--red)':s==='warn'?'#EF9F27':'#3B6D11';
+      const minPct=Math.min(100,(i.min/maxV)*100);
+      const valPct=Math.min(100,Math.max(0,(i.atual/maxV)*100));
+      return `<div style="display:grid;grid-template-columns:200px 1fr 80px;align-items:center;gap:10px">
+        <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)">${i.nome}</div>
+        <div style="position:relative;height:12px;background:var(--bg);border-radius:6px;overflow:visible">
+          <div style="height:100%;border-radius:6px;background:${barColor};width:${valPct}%;transition:width .3s"></div>
+          <div style="position:absolute;top:-2px;bottom:-2px;left:${minPct}%;width:2px;background:${s==='ok'?'#B0A8C8':'#A32D2D'};border-radius:2px" title="mínimo: ${i.min}"></div>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:${barColor};text-align:right">${fmtNum(i.atual)} <span style="font-weight:400;color:var(--tx3)">${i.und}</span></div>
+      </div>`;
+    }).join('')+'</div>';
+}
+
+// ════════════════════════════════════════════════════════════════
+// TIRZEPATIDA DASHBOARD
+// ════════════════════════════════════════════════════════════════
+let tirzChartInstance = null;
+function renderTirzDash(){
+  // Saldos amp
+  let stin_e=0,stin_s=0,reva_e=0,reva_s=0;
+  ampData.forEach(r=>{
+    if(r.marca==='STIN') r.tipo==='entrada'?stin_e+=r.qty:stin_s+=r.qty;
+    else if(r.marca==='REVALIFE') r.tipo==='entrada'?reva_e+=r.qty:reva_s+=r.qty;
+  });
+  const stin=stin_e-stin_s, reva=reva_e-reva_s, total=stin+reva;
+
+  // KPIs
+  document.getElementById('tirz-kpis').innerHTML=`
+    <div class="metric" style="border-left:3px solid var(--purple)">
+      <div style="font-size:20px;margin-bottom:4px">📦</div>
+      <div class="metric-lbl">Saldo total</div>
+      <div class="metric-val" style="color:var(--purple)">${total}</div>
+      <div class="metric-sub">ampolas em estoque</div>
+    </div>
+    <div class="metric" style="border-left:3px solid var(--blue)">
+      <div style="font-size:20px;margin-bottom:4px">🔵</div>
+      <div class="metric-lbl">STIN</div>
+      <div class="metric-val" style="color:var(--blue)">${stin}</div>
+      <div class="metric-sub">${stin_e} entradas · ${stin_s} saídas</div>
+    </div>
+    <div class="metric" style="border-left:3px solid var(--amber)">
+      <div style="font-size:20px;margin-bottom:4px">🟡</div>
+      <div class="metric-lbl">REVALIFE</div>
+      <div class="metric-val" style="color:var(--amber)">${reva}</div>
+      <div class="metric-sub">${reva_e} entradas · ${reva_s} saídas</div>
+    </div>
+    <div class="metric" style="border-left:3px solid var(--teal)">
+      <div style="font-size:20px;margin-bottom:4px">💉</div>
+      <div class="metric-lbl">Doses — jun/26</div>
+      <div class="metric-val" style="color:var(--teal)">${doseData.length}</div>
+      <div class="metric-sub">aplicações registradas</div>
+    </div>
+  `;
+
+  // Marcas
+  const maxM=Math.max(stin_e,reva_e,1);
+  document.getElementById('tirz-marcas').innerHTML=`
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+        <span><span class="pill pb">STIN</span></span>
+        <span style="font-weight:700;color:var(--blue)">${stin} amp <span style="color:var(--tx3);font-weight:400">(saldo)</span></span>
+      </div>
+      <div style="height:10px;background:var(--bg);border-radius:5px;overflow:hidden">
+        <div style="height:100%;background:var(--blue);width:${Math.max(0,stin)/maxM*100}%;border-radius:5px"></div>
+      </div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:3px">${stin_e} entradas · ${stin_s} saídas</div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+        <span><span class="pill pa">REVALIFE</span></span>
+        <span style="font-weight:700;color:var(--amber)">${reva} amp <span style="color:var(--tx3);font-weight:400">(saldo)</span></span>
+      </div>
+      <div style="height:10px;background:var(--bg);border-radius:5px;overflow:hidden">
+        <div style="height:100%;background:#EF9F27;width:${Math.max(0,reva)/maxM*100}%;border-radius:5px"></div>
+      </div>
+      <div style="font-size:11px;color:var(--tx3);margin-top:3px">${reva_e} entradas · ${reva_s} saídas</div>
+    </div>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--bdr);display:flex;justify-content:space-between;font-size:12px">
+      <span style="color:var(--tx2)">Total entradas</span><span style="font-weight:700;color:var(--green)">${stin_e+reva_e} amp</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px">
+      <span style="color:var(--tx2)">Total saídas</span><span style="font-weight:700;color:var(--red)">${stin_s+reva_s} amp</span>
+    </div>
+  `;
+
+  // Doses por semana chart
+  const weeks = {'01-07/06':0,'08-14/06':0,'15-21/06':0,'22/06':0};
+  doseData.forEach(r=>{
+    const [d]=r.data.split('/');const di=parseInt(d);
+    if(di<=7) weeks['01-07/06']++;
+    else if(di<=14) weeks['08-14/06']++;
+    else if(di<=21) weeks['15-21/06']++;
+    else weeks['22/06']++;
+  });
+  if(tirzChartInstance) tirzChartInstance.destroy();
+  const ctx=document.getElementById('tirz-chart').getContext('2d');
+  tirzChartInstance=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:Object.keys(weeks),
+      datasets:[{label:'Doses',data:Object.values(weeks),backgroundColor:'#6B3FA0',borderRadius:6,borderSkipped:false}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#7A6E91',font:{size:11}}},
+        y:{grid:{color:'#E2DDF0'},ticks:{color:'#7A6E91',font:{size:11},stepSize:5},beginAtZero:true}
+      }
+    }
+  });
+
+  // Amp mini timeline
+  const recent=[...ampData].reverse().slice(0,8);
+  document.getElementById('tirz-amp-mini').innerHTML=`<div style="display:grid;gap:0">` +
+    recent.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--bdr);font-size:13px">
+      <span class="pill ${r.tipo==='entrada'?'pi':'po'}" style="min-width:60px;text-align:center">${r.tipo==='entrada'?'↑ Entrada':'↓ Saída'}</span>
+      <span style="color:var(--tx3);font-size:12px;min-width:80px">${r.data}</span>
+      <span class="pill ${r.marca==='STIN'?'pb':'pa'}">${r.marca}</span>
+      <span style="color:var(--tx2);font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.obs}</span>
+      <span style="font-weight:700;min-width:24px;text-align:right">${r.qty}</span>
+    </div>`).join('')+'</div>';
+
+  // Top pacientes
+  const pac={};
+  doseData.forEach(r=>{pac[r.paciente]=(pac[r.paciente]||0)+1;});
+  const top=Object.entries(pac).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxP=top[0]?.[1]||1;
+  document.getElementById('tirz-top-pac').innerHTML=`<div style="display:grid;gap:8px">` +
+    top.map(([nome,cnt],i)=>`<div style="display:grid;grid-template-columns:20px 1fr 40px;align-items:center;gap:8px">
+      <span style="font-size:11px;color:var(--tx3);font-weight:700">${i+1}</span>
+      <div>
+        <div style="font-size:12px;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nome}</div>
+        <div style="height:5px;background:var(--bg);border-radius:3px;overflow:hidden">
+          <div style="height:100%;border-radius:3px;background:var(--purple);width:${(cnt/maxP)*100}%"></div>
+        </div>
+      </div>
+      <span style="font-size:13px;font-weight:700;color:var(--purple);text-align:right">${cnt}x</span>
+    </div>`).join('')+'</div>';
+}
+
+// ════════════════════════════════════════════════════════════════
+// ALERTAS
+// ════════════════════════════════════════════════════════════════
+function renderAlertas(){
+  const al = inventario.filter(i=>status(i)!=='ok').sort((a,b)=>a.atual-b.atual);
+  document.getElementById('alert-list').innerHTML = al.length
+    ? `<div class="card"><table>
+        <thead><tr><th>Categoria</th><th>Produto</th><th>Estoque atual</th><th>Mín.</th><th>Und</th><th>Status</th></tr></thead>
+        <tbody>${al.map(i=>`<tr>
+          <td style="color:var(--tx2)">${i.cat}</td>
+          <td><b>${i.nome}</b></td>
+          <td style="color:${i.atual<=0?'var(--red)':'var(--amber)'}"><b>${fmtNum(i.atual)}</b></td>
+          <td>${i.min}</td>
+          <td>${i.und}</td>
+          <td><span class="pill ${i.atual<=0?'po':'pa'}">${i.atual<=0?'Zerado':'Abaixo do mínimo'}</span></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`
+    : '<div class="card"><div class="empty">✅ Nenhum alerta — todo o estoque está adequado.</div></div>';
+}
+
+// ════════════════════════════════════════════════════════════════
+// MOVIMENTAÇÕES
+// ════════════════════════════════════════════════════════════════
+function initMovFilters(){
+  const prods=[...new Set(movData.map(r=>r.prod))].sort();
+  const sel=document.getElementById('f-mov-prod');
+  sel.innerHTML='<option value="">Todos os produtos</option>'+prods.map(p=>`<option>${p}</option>`).join('');
+}
+function renderMov(){
+  const txt=(document.getElementById('f-mov-txt').value||'').toLowerCase();
+  const tipo=document.getElementById('f-mov-tipo').value;
+  const prod=document.getElementById('f-mov-prod').value;
+  const rows=sortByDate(movData.map((r,idx)=>({...r,_idx:idx})).filter(r=>{
+    if(tipo&&r.tipo!==tipo)return false;
+    if(prod&&r.prod!==prod)return false;
+    if(txt&&!(r.prod.toLowerCase().includes(txt)||r.obs.toLowerCase().includes(txt)))return false;
+    return true;
+  }));
+  document.querySelector('#t-mov tbody').innerHTML=rows.length
+    ? rows.map((r,i)=>`<tr>
+        <td style="color:var(--tx3)">${i+1}</td>
+        <td>${r.data}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${r.prod}</b></td>
+        <td><span class="pill ${r.tipo==='ENTRADA'?'pi':'po'}">${r.tipo==='ENTRADA'?'↑ Entrada':'↓ Saída'}</span></td>
+        <td><b>${r.qty}</b></td>
+        <td>${r.und}</td>
+        <td>${fmtBRL(r.vunit)}</td>
+        <td style="color:var(--tx2)">${r.obs||'—'}</td>
+        <td><button onclick="editMov(${r._idx})" style="border:none;background:none;cursor:pointer;color:var(--purple);font-size:13px;padding:2px 6px;border-radius:4px" title="Editar">✏️</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="9" class="empty">Nenhum registro encontrado</td></tr>';
+}
+
+// ════════════════════════════════════════════════════════════════
+// REG ENTRADA / SAÍDA
+// ════════════════════════════════════════════════════════════════
+function initRegSelects(){
+  const prods=[...new Set(inventario.map(i=>i.nome))].sort();
+  ['re-prod','rs-prod'].forEach(id=>{
+    document.getElementById(id).innerHTML=prods.map(p=>`<option>${p}</option>`).join('');
+  });
+}
+function regEntrada(){
+  const data=document.getElementById('re-data').value;
+  const prod=document.getElementById('re-prod').value;
+  const qty=parseFloat(document.getElementById('re-qty').value)||0;
+  const und=document.getElementById('re-und').value.trim();
+  const vunit=parseFloat(document.getElementById('re-vunit').value)||0;
+  const obs=document.getElementById('re-obs').value.trim();
+  if(!data||!prod||qty<1){toast('Preencha data, produto e quantidade.',true);return;}
+  const [y,m,d]=data.split('-');
+  movData.unshift({data:`${d}/${m}/${y}`,prod,tipo:'ENTRADA',qty,und:und||'UN',vunit,obs});
+  const inv=inventario.find(i=>i.nome===prod);
+  if(inv) inv.atual=+(inv.atual+qty).toFixed(2);
+  limpar('re');renderDash();renderMov();renderInv();renderAlertas();
+  toast(`✓ Entrada de ${qty} ${und} de ${prod} registrada.`);
+}
+function regSaida(){
+  const data=document.getElementById('rs-data').value;
+  const prod=document.getElementById('rs-prod').value;
+  const qty=parseFloat(document.getElementById('rs-qty').value)||0;
+  const obs=document.getElementById('rs-obs').value.trim();
+  if(!data||!prod||qty<1){toast('Preencha todos os campos.',true);return;}
+  const inv=inventario.find(i=>i.nome===prod);
+  if(inv&&inv.atual<qty){toast(`Estoque insuficiente! Disponível: ${fmtNum(inv.atual)} ${inv.und}`,true);return;}
+  const [y,m,d]=data.split('-');
+  movData.unshift({data:`${d}/${m}/${y}`,prod,tipo:'SAIDA',qty,und:inv?inv.und:'UN',vunit:0,obs});
+  if(inv) inv.atual=+(inv.atual-qty).toFixed(2);
+  limpar('rs');renderDash();renderMov();renderInv();renderAlertas();
+  toast(`✓ Saída de ${qty} ${inv?inv.und:'un'} de ${prod} registrada.`);
+}
+
+// ════════════════════════════════════════════════════════════════
+// AMP & DOSE (Tirzepatida)
+// ════════════════════════════════════════════════════════════════
+function sortByDate(rows){
+  return [...rows].sort((a,b)=>{
+    const toISO=d=>{
+      if(!d)return'';
+      if(d.includes('/'))return d.split('/').reverse().join('-');
+      return d;
+    };
+    return toISO(b.data).localeCompare(toISO(a.data));
+  });
+}
+
+function renderAmp(){
+  const txt=(document.getElementById('f-amp-txt').value||'').toLowerCase();
+  const marca=document.getElementById('f-amp-marca').value;
+  const tipo=document.getElementById('f-amp-tipo').value;
+  const rows=sortByDate(ampData.map((r,idx)=>({...r,_idx:idx})).filter(r=>{
+    if(txt&&!(r.obs.toLowerCase().includes(txt)||r.marca.toLowerCase().includes(txt)))return false;
+    if(marca&&r.marca!==marca)return false;
+    if(tipo&&r.tipo!==tipo)return false;
+    return true;
+  }));
+  document.querySelector('#t-amp thead tr').innerHTML='<th>#</th><th>Data</th><th>Tipo</th><th>Qtd</th><th>Marca</th><th>Observação</th><th></th>';
+  document.querySelector('#t-amp tbody').innerHTML=rows.length
+    ? rows.map((r,i)=>`<tr>
+        <td style="color:var(--tx3)">${i+1}</td>
+        <td>${r.data}</td>
+        <td><span class="pill ${r.tipo==='entrada'?'pi':'po'}">${r.tipo==='entrada'?'↑ Entrada':'↓ Saída'}</span></td>
+        <td><b>${r.qty}</b></td>
+        <td><span class="pill ${r.marca==='STIN'?'pb':'pa'}">${r.marca}</span></td>
+        <td style="color:var(--tx2)">${r.obs||'—'}</td>
+        <td><button onclick="editAmp(${r._idx})" style="border:none;background:none;cursor:pointer;color:var(--purple);font-size:13px;padding:2px 6px;border-radius:4px" title="Editar">✏️</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="7" class="empty">Nenhum registro encontrado</td></tr>';
+}
+function renderDose(){
+  const txt=(document.getElementById('f-dose-txt').value||'').toLowerCase();
+  const de=document.getElementById('f-dose-de').value;
+  const ate=document.getElementById('f-dose-ate').value;
+  const rows=sortByDate(doseData.map((r,idx)=>({...r,_idx:idx})).filter(r=>{
+    if(txt&&!r.paciente.toLowerCase().includes(txt))return false;
+    if(de||ate){const[d,m,y]=r.data.split('/');const dt=`${y}-${m}-${d}`;if(de&&dt<de)return false;if(ate&&dt>ate)return false;}
+    return true;
+  }));
+  document.querySelector('#t-dose thead tr').innerHTML='<th>#</th><th>Data</th><th>Paciente</th><th>Dose</th><th>Observação</th><th></th>';
+  document.querySelector('#t-dose tbody').innerHTML=rows.length
+    ? rows.map((r,i)=>`<tr>
+        <td style="color:var(--tx3)">${i+1}</td>
+        <td>${r.data}</td>
+        <td>${r.paciente}</td>
+        <td><span class="pill pp">${r.dose}</span></td>
+        <td style="color:var(--tx2)">${r.obs||'—'}</td>
+        <td><button onclick="editDose(${r._idx})" style="border:none;background:none;cursor:pointer;color:var(--purple);font-size:13px;padding:2px 6px;border-radius:4px" title="Editar">✏️</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="empty">Nenhum registro encontrado</td></tr>';
+}
+function regAmp(){
+  const data=document.getElementById('ta-data').value;
+  const qty=parseInt(document.getElementById('ta-qty').value)||0;
+  const marca=document.getElementById('ta-marca').value;
+  const obs=document.getElementById('ta-obs').value.trim();
+  if(!data||qty<1){toast('Preencha data e quantidade.',true);return;}
+  const[y,m,d]=data.split('-');
+  ampData.unshift({data:`${d}/${m}/${y}`,tipo:'entrada',qty,marca,obs});
+  limpar('ta');renderDash();renderTirzDash();renderAmp();
+  toast(`✓ ${qty} ampola(s) ${marca} adicionadas.`);
+}
+
+function regSaidaAmp(){
+  const data=document.getElementById('tsa-data').value;
+  const qty=parseInt(document.getElementById('tsa-qty').value)||0;
+  const marca=document.getElementById('tsa-marca').value;
+  const obs=document.getElementById('tsa-obs').value.trim();
+  if(!data||qty<1||!obs){toast('Preencha data, quantidade e paciente/destino.',true);return;}
+  // Check saldo
+  let ent=0,sai=0;
+  ampData.forEach(r=>{if(r.marca===marca){r.tipo==='entrada'?ent+=r.qty:sai+=r.qty;}});
+  const saldo=ent-sai;
+  if(qty>saldo){toast(`Saldo insuficiente de ${marca}! Disponível: ${saldo} ampola(s).`,true);return;}
+  const[y,m,d]=data.split('-');
+  ampData.unshift({data:`${d}/${m}/${y}`,tipo:'saida',qty,marca,obs});
+  limpar('tsa');setToday('tsa-data');updateTsaSaldo();
+  renderDash();renderTirzDash();renderAmp();
+  toast(`✓ Saída de ${qty} ampola(s) ${marca} registrada.`);
+}
+
+function updateTsaSaldo(){
+  const marca=document.getElementById('tsa-marca')?.value;
+  if(!marca)return;
+  let ent=0,sai=0;
+  ampData.forEach(r=>{if(r.marca===marca){r.tipo==='entrada'?ent+=r.qty:sai+=r.qty;}});
+  const saldo=ent-sai;
+  const el=document.getElementById('tsa-saldo');
+  if(el) el.innerHTML=`Saldo atual <b>${marca}</b>: <b style="color:${saldo<=0?'var(--red)':saldo<=2?'var(--amber)':'var(--green)'}">${saldo} ampola(s)</b>`;
+}
+
+// ════════════════════════════════════════════════════════════════
+// EDIT / DELETE MODAL
+// ════════════════════════════════════════════════════════════════
+let editCtx = null; // {type, idx}
+
+function field(label, id, val, type='text', opts=null){
+  if(opts){
+    return `<div><label style="font-size:12px;font-weight:600;color:var(--tx2);display:block;margin-bottom:4px">${label}</label>
+      <select id="ef-${id}" style="width:100%;padding:7px 10px;font-size:13px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--surf);color:var(--tx)">
+        ${opts.map(o=>`<option${o===val?' selected':''}>${o}</option>`).join('')}
+      </select></div>`;
+  }
+  const inputType = type==='date' ? 'date' : type==='number' ? 'number' : 'text';
+  const dateVal = type==='date' ? (val.includes('/')?val.split('/').reverse().join('-'):val) : val;
+  return `<div><label style="font-size:12px;font-weight:600;color:var(--tx2);display:block;margin-bottom:4px">${label}</label>
+    <input type="${inputType}" id="ef-${id}" value="${dateVal||''}" style="width:100%;padding:7px 10px;font-size:13px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--surf);color:var(--tx)">
+    </div>`;
+}
+function getEF(id){ return document.getElementById('ef-'+id)?.value||''; }
+function fmtDateOut(v){ if(v.includes('-')){const[y,m,d]=v.split('-');return`${d}/${m}/${y}`;}return v; }
+
+function editAmp(idx){
+  const r=ampData[idx];
+  editCtx={type:'amp',idx};
+  document.getElementById('edit-title').textContent='Editar — ampola Tirzepatida';
+  document.getElementById('edit-fields').innerHTML=
+    field('Data','data',r.data,'date')+
+    field('Tipo','tipo',r.tipo,'',[' entrada','saida'])+
+    field('Quantidade','qty',r.qty,'number')+
+    field('Marca','marca',r.marca,'',['STIN','REVALIFE','OUTRO'])+
+    field('Observação','obs',r.obs);
+  document.getElementById('edit-modal').style.display='flex';
+}
+
+function editDose(idx){
+  const r=doseData[idx];
+  editCtx={type:'dose',idx};
+  document.getElementById('edit-title').textContent='Editar — dose Tirzepatida';
+  document.getElementById('edit-fields').innerHTML=
+    field('Data','data',r.data,'date')+
+    field('Paciente','pac',r.paciente)+
+    field('Dose','dose',r.dose)+
+    field('Observação','obs',r.obs||'');
+  document.getElementById('edit-modal').style.display='flex';
+}
+
+function editMov(idx){
+  const r=movData[idx];
+  editCtx={type:'mov',idx};
+  document.getElementById('edit-title').textContent='Editar — movimentação';
+  const prods=[...new Set(inventario.map(i=>i.nome))].sort();
+  document.getElementById('edit-fields').innerHTML=
+    field('Data','data',r.data,'date')+
+    field('Produto','prod',r.prod,'',prods)+
+    field('Tipo','tipo',r.tipo,'',['ENTRADA','SAIDA'])+
+    field('Quantidade','qty',r.qty,'number')+
+    field('Unidade','und',r.und)+
+    field('Valor unitário','vunit',r.vunit,'number')+
+    field('Observação / Paciente','obs',r.obs||'');
+  document.getElementById('edit-modal').style.display='flex';
+}
+
+function saveEdit(){
+  if(!editCtx)return;
+  const{type,idx}=editCtx;
+  if(type==='amp'){
+    ampData[idx]={
+      data:fmtDateOut(getEF('data')),
+      tipo:getEF('tipo').trim(),
+      qty:parseInt(getEF('qty'))||1,
+      marca:getEF('marca'),
+      obs:getEF('obs')
+    };
+    closeEdit();renderAmp();renderTirzDash();renderDash();
+    toast('✓ Ampola atualizada.');
+  } else if(type==='dose'){
+    doseData[idx]={
+      data:fmtDateOut(getEF('data')),
+      paciente:getEF('pac').toUpperCase(),
+      dose:getEF('dose'),
+      obs:getEF('obs')
+    };
+    closeEdit();renderDose();renderTirzDash();renderDash();
+    toast('✓ Dose atualizada.');
+  } else if(type==='mov'){
+    movData[idx]={
+      data:fmtDateOut(getEF('data')),
+      prod:getEF('prod'),
+      tipo:getEF('tipo'),
+      qty:parseFloat(getEF('qty'))||1,
+      und:getEF('und')||'UN',
+      vunit:parseFloat(getEF('vunit'))||0,
+      obs:getEF('obs')
+    };
+    closeEdit();renderMov();renderDash();renderAlertas();
+    toast('✓ Movimentação atualizada.');
+  }
+}
+
+function deleteRecord(){
+  if(!editCtx)return;
+  const{type,idx}=editCtx;
+  if(!confirm('Excluir este registro? Esta ação não pode ser desfeita.'))return;
+  if(type==='amp') ampData.splice(idx,1);
+  else if(type==='dose') doseData.splice(idx,1);
+  else if(type==='mov') movData.splice(idx,1);
+  closeEdit();
+  renderAmp();renderDose();renderMov();renderTirzDash();renderDash();renderAlertas();
+  toast('Registro excluído.');
+}
+
+function closeEdit(){
+  document.getElementById('edit-modal').style.display='none';
+  editCtx=null;
+}
+
+function regDose(){
+  const data=document.getElementById('td-data').value;
+  const pac=document.getElementById('td-pac').value.trim().toUpperCase();
+  const dose=document.getElementById('td-dose').value.trim();
+  const obs=document.getElementById('td-obs').value.trim();
+  if(!data||!pac||!dose){toast('Preencha data, paciente e dose.',true);return;}
+  const[y,m,d]=data.split('-');
+  doseData.unshift({data:`${d}/${m}/${y}`,paciente:pac,dose,obs});
+  limpar('td');renderDash();renderTirzDash();renderDose();
+  toast(`✓ Dose de ${dose} para ${pac} registrada.`);
+}
+
+// ════════════════════════════════════════════════════════════════
+// INVENTÁRIO
+// ════════════════════════════════════════════════════════════════
+function initInvFilter(){
+  const cats=[...new Set(inventario.map(i=>i.cat))];
+  document.getElementById('f-inv-cat').innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>`<option>${c}</option>`).join('');
+}
+function renderInv(){
+  const txt=(document.getElementById('f-inv-txt').value||'').toLowerCase();
+  const cat=document.getElementById('f-inv-cat').value;
+  const rows=inventario.filter(i=>{
+    if(txt&&!i.nome.toLowerCase().includes(txt))return false;
+    if(cat&&i.cat!==cat)return false;
+    return true;
+  });
+  let lastCat='';
+  document.getElementById('inv-grid').innerHTML=rows.map(i=>{
+    const s=status(i);
+    const barColor=s==='alert'?'var(--red)':s==='warn'?'#EF9F27':'var(--green)';
+    const catHdr=i.cat!==lastCat?(lastCat=i.cat,`<div style="grid-column:1/-1;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--tx3);padding:.5rem 0 .1rem;border-top:1px solid var(--bdr);margin-top:.4rem">${i.cat}</div>`):'';
+    return catHdr+`<div class="stock-card">
+      <div class="sc-name" title="${i.nome}">${i.nome}</div>
+      <div class="sc-row"><span style="color:var(--tx3);font-size:11px">Mín: ${i.min} ${i.und}</span><span class="pill ${s==='alert'?'po':s==='warn'?'pa':'pi'}">${s==='alert'?'Zerado':s==='warn'?'Baixo':'OK'}</span></div>
+      <div class="sc-val" style="color:${barColor}">${fmtNum(i.atual)} <span style="font-size:12px;font-weight:400;color:var(--tx2)">${i.und}</span></div>
+      <div class="sc-bar"><div class="sc-fill" style="width:${Math.min(100,i.min>0?Math.max(0,(i.atual/Math.max(i.atual,i.min*2))*100):50)}%;background:${barColor}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// NAV
+// ════════════════════════════════════════════════════════════════
+function show(name,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='mov') renderMov();
+  if(name==='tirz-dash') renderTirzDash();
+  if(name==='tirz-saida-amp'){setToday('tsa-data');updateTsaSaldo();}
+  if(name==='tirz-amp') renderAmp();
+  if(name==='tirz-dose') renderDose();
+  if(name==='inv') renderInv();
+  if(name==='alertas') renderAlertas();
+}
+
+// ════════════════════════════════════════════════════════════════
+// CSV IMPORT
+// ════════════════════════════════════════════════════════════════
+let csvParsed = [];
+
+function importCSV(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    csvParsed = parseCSV(text);
+    if(!csvParsed.length){ toast('CSV vazio ou inválido.',true); return; }
+    showCSVModal(file.name, csvParsed);
+  };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value='';
+}
+
+function parseCSV(text){
+  const lines = text.trim().split(/\r?\n/);
+  if(lines.length<2) return [];
+  const sep = lines[0].includes(';') ? ';' : ',';
+  const headers = lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const vals = splitCSVLine(lines[i], sep);
+    if(vals.every(v=>!v.trim())) continue;
+    const obj={};
+    headers.forEach((h,idx)=>{ obj[h]=vals[idx]?.trim().replace(/^"|"$/g,'')||''; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function splitCSVLine(line, sep){
+  const result=[], re=new RegExp(`(?:^|${sep})("(?:[^"]|"")*"|[^${sep}]*)`, 'g');
+  let m;
+  while((m=re.exec(line))!==null) result.push(m[1]);
+  return result;
+}
+
+// Detect what the CSV contains and map to update type
+function detectCSVType(rows){
+  const keys = Object.keys(rows[0]||{}).join(' ').toLowerCase();
+  if(keys.includes('paciente') && keys.includes('dose')) return 'dose';
+  if(keys.includes('marca') && (keys.includes('entrada') || keys.includes('saida'))) return 'amp';
+  if(keys.includes('produto') || keys.includes('nome') || keys.includes('medicamento')) return 'estoque';
+  if(keys.includes('movimentação') || keys.includes('movimentacao') || keys.includes('tipo')) return 'mov';
+  return 'estoque';
+}
+
+function showCSVModal(filename, rows){
+  const modal = document.getElementById('csv-modal');
+  const type  = detectCSVType(rows);
+  const typeLabel = {dose:'Doses de Tirzepatida', amp:'Ampolas de Tirzepatida', estoque:'Atualização de estoque', mov:'Movimentações'}[type];
+  const headers = Object.keys(rows[0]);
+
+  document.getElementById('csv-preview').innerHTML=
+    `<b>${filename}</b> — <span style="color:var(--purple);font-weight:600">${rows.length} linhas</span> detectadas &nbsp;|&nbsp; Tipo: <span class="pill pp">${typeLabel}</span><br>
+    <span style="font-size:11px;color:var(--tx3);margin-top:4px;display:block">
+      Colunas: ${headers.join(', ')} &nbsp;|&nbsp;
+      Formatos aceitos: <b>produto / atual / und / min</b> (estoque), <b>data / paciente / dose</b> (doses), <b>data / tipo / qty / marca</b> (ampolas)
+    </span>`;
+
+  const preview = rows.slice(0,8);
+  document.getElementById('csv-table').innerHTML=
+    `<thead><tr>${headers.map(h=>`<th style="text-align:left;padding:4px 8px;font-size:11px;color:var(--tx2);border-bottom:1px solid var(--bdr);font-weight:600">${h}</th>`).join('')}</tr></thead>
+     <tbody>${preview.map(r=>`<tr>${headers.map(h=>`<td style="padding:4px 8px;border-bottom:1px solid var(--bdr);color:var(--tx)">${r[h]||'—'}</td>`).join('')}</tr>`).join('')}</tbody>
+     ${rows.length>8?`<tfoot><tr><td colspan="${headers.length}" style="padding:4px 8px;font-size:11px;color:var(--tx3)">... e mais ${rows.length-8} linhas</td></tr></tfoot>`:''}`;
+
+  modal.style.display='flex';
+  modal._type = type;
+}
+
+function closeCSV(){
+  document.getElementById('csv-modal').style.display='none';
+  csvParsed=[];
+}
+
+function applyCSV(){
+  const type = document.getElementById('csv-modal')._type;
+  let updated=0, skipped=0;
+
+  if(type==='estoque'){
+    csvParsed.forEach(row=>{
+      // Accept: produto/nome/medicamento + atual/estoque + und + min
+      const nome = (row['produto']||row['nome']||row['medicamento']||'').trim().toUpperCase();
+      const atual = parseFloat((row['atual']||row['estoque']||row['quantidade']||'').replace(',','.'));
+      if(!nome || isNaN(atual)){ skipped++; return; }
+      const item = inventario.find(i=>i.nome===nome || i.nome===nome.toUpperCase());
+      if(item){
+        item.atual = atual;
+        if(row['min']||row['mínimo']||row['minimo']) item.min = parseFloat((row['min']||row['mínimo']||row['minimo']).replace(',','.')) || item.min;
+        if(row['und']||row['unidade']) item.und = row['und']||row['unidade']||item.und;
+        updated++;
+      } else skipped++;
+    });
+  } else if(type==='mov'){
+    csvParsed.forEach(row=>{
+      const data = row['data']||row['date']||'';
+      const prod = (row['produto']||row['product']||row['nome']||'').toUpperCase();
+      const tipo = (row['tipo']||row['movimentação']||row['movimentacao']||'').toUpperCase();
+      const qty  = parseFloat((row['qty']||row['qtd']||row['quantidade']||'0').replace(',','.'));
+      const und  = row['und']||row['unidade']||'UN';
+      const obs  = row['obs']||row['observação']||row['paciente']||'';
+      const vunit= parseFloat((row['valor unitário']||row['vunit']||'0').replace(',','.'));
+      if(!data||!prod||!tipo||!qty){ skipped++; return; }
+      movData.unshift({data, prod, tipo: tipo.includes('ENTR')?'ENTRADA':'SAIDA', qty, und, vunit, obs});
+      // Update inventory
+      const item=inventario.find(i=>i.nome===prod);
+      if(item){
+        if(tipo.includes('ENTR')) item.atual=+(item.atual+qty).toFixed(2);
+        else item.atual=+(Math.max(0,item.atual-qty)).toFixed(2);
+      }
+      updated++;
+    });
+  } else if(type==='dose'){
+    csvParsed.forEach(row=>{
+      const data     = row['data']||'';
+      const paciente = (row['paciente']||'').trim().toUpperCase();
+      const dose     = row['dose']||'';
+      const obs      = row['obs']||row['observação']||'';
+      if(!data||!paciente||!dose){ skipped++; return; }
+      doseData.unshift({data, paciente, dose, obs});
+      updated++;
+    });
+  } else if(type==='amp'){
+    csvParsed.forEach(row=>{
+      const data  = row['data']||'';
+      const tipo  = (row['tipo']||'').toLowerCase();
+      const qty   = parseInt(row['qty']||row['qtd']||row['quantidade']||'0');
+      const marca = (row['marca']||'STIN').toUpperCase();
+      const obs   = row['obs']||row['observação']||'';
+      if(!data||!tipo||!qty){ skipped++; return; }
+      ampData.unshift({data, tipo: tipo.includes('entr')?'entrada':'saida', qty, marca, obs});
+      updated++;
+    });
+  }
+
+  closeCSV();
+  // Refresh all panels
+  initMovFilters(); initRegSelects(); initInvFilter();
+  renderDash(); renderTirzDash(); renderMov(); renderAmp(); renderDose(); renderInv(); renderAlertas();
+
+  toast(`✓ ${updated} registro(s) importado(s)${skipped>0?' · '+skipped+' ignorado(s)':''}.`);
+}
+
+const today=new Date();
+document.getElementById('hdr-date').textContent=
+  today.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+['re-data','rs-data','ta-data','tsa-data','td-data'].forEach(setToday);
+
+// Update saldo display when marca changes on saida-amp form
+document.addEventListener('change', e=>{
+  if(e.target.id==='tsa-marca') updateTsaSaldo();
+});
+
+initMovFilters();
+initRegSelects();
+initInvFilter();
+renderDash();
+renderTirzDash();
+renderMov();
+renderAmp();
+renderDose();
+renderInv();
+renderAlertas();
+</script>
+</body>
+</html>
