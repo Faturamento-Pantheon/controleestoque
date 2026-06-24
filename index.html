@@ -100,11 +100,70 @@ input:focus,select:focus{outline:none;border-color:var(--purple);box-shadow:0 0 
 @media(max-width:700px){.sidebar{display:none}.g2{grid-template-columns:1fr}}
 .btn-csv{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;font-weight:600;border:1.5px solid var(--purple);border-radius:var(--r);cursor:pointer;background:var(--surf);color:var(--purple);transition:all .12s}
 .btn-csv:hover{background:var(--purple-l)}
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#F8F7FC 0%,#EDE9F7 100%);z-index:9999;display:flex;align-items:center;justify-content:center}
+.login-box{background:var(--surf);border:1px solid var(--bdr);border-radius:20px;padding:2.5rem 2rem;width:360px;box-shadow:0 8px 40px rgba(107,63,160,.15)}
+.login-logo{text-align:center;margin-bottom:1.75rem}
+.login-logo-name{font-size:28px;font-weight:700;color:var(--purple);letter-spacing:.5px}
+.login-logo-tag{font-size:9px;letter-spacing:2.5px;color:var(--purple-m);margin-top:3px}
+.login-field{margin-bottom:12px}
+.login-field label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px}
+.login-field input{width:100%;padding:10px 12px;font-size:14px;border:1.5px solid var(--bdr);border-radius:var(--r);background:var(--surf);color:var(--tx);transition:border-color .12s;font-family:inherit}
+.login-field input:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(107,63,160,.1)}
+.login-btn{width:100%;padding:11px;background:var(--purple);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;margin-top:6px;transition:background .12s}
+.login-btn:hover{background:var(--purple-d)}
+.login-err{color:var(--red);font-size:12px;text-align:center;margin-top:10px;min-height:18px;font-weight:500}
+.user-badge{display:inline-flex;align-items:center;gap:7px;background:var(--purple-l);border-radius:99px;padding:3px 12px 3px 5px;font-size:12px;font-weight:600;color:var(--purple);cursor:pointer}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:var(--purple);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+#admin-modal{display:none;position:fixed;inset:0;background:rgba(28,21,48,.6);z-index:10000;align-items:center;justify-content:center}
 </style>
-</head>
 <body>
 
-<header class="hdr">
+<!-- ══ TELA DE LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-name">Pantheon</div>
+      <div class="login-logo-tag">EMAGRECIMENTO · HIPERTROFIA · LONGEVIDADE</div>
+    </div>
+    <div style="text-align:center;font-size:14px;color:var(--tx2);margin-bottom:1.5rem">Controle de Estoque</div>
+    <div class="login-field">
+      <label>Usuário</label>
+      <input type="text" id="login-user" placeholder="Seu usuário" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="login-pass" placeholder="Sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()">
+    </div>
+    <button class="login-btn" onclick="fazerLogin()">Entrar</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ══ MODAL ADMIN — GERENCIAR USUÁRIOS ══ -->
+<div id="admin-modal">
+  <div style="background:var(--surf);border-radius:var(--rl);padding:1.75rem;max-width:520px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto">
+    <div style="font-size:16px;font-weight:700;margin-bottom:1.25rem">👥 Gerenciar usuários</div>
+    <div id="admin-user-list" style="margin-bottom:1.25rem"></div>
+    <div style="border-top:1px solid var(--bdr);padding-top:1rem">
+      <div style="font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:.75rem">Adicionar usuário</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+        <div class="field"><label>Usuário</label><input type="text" id="nu-user" placeholder="Ex: savana"></div>
+        <div class="field"><label>Senha</label><input type="password" id="nu-pass" placeholder="Mínimo 4 caracteres"></div>
+        <div class="field"><label>Perfil</label>
+          <select id="nu-role">
+            <option value="colaboradora">Colaboradora</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <button class="btn btn-p" onclick="adicionarUsuario()">+ Adicionar</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:1rem;border-top:1px solid var(--bdr);margin-top:.5rem">
+      <button class="btn btn-g" onclick="document.getElementById('admin-modal').style.display='none'">Fechar</button>
+    </div>
+  </div>
+</div>
   <div>
     <div class="logo-name">Pantheon</div>
     <div class="logo-tag">EMAGRECIMENTO · HIPERTROFIA · LONGEVIDADE</div>
@@ -127,6 +186,7 @@ input:focus,select:focus{outline:none;border-color:var(--purple);box-shadow:0 0 
     </button>
     <span class="hdr-badge">Controle de Estoque</span>
     <span id="sync-status" style="font-size:11px;color:var(--tx2);margin-left:4px">🟡 Conectando…</span>
+    <div id="user-badge-area"></div>
   </div>
 </header>
 
@@ -2652,6 +2712,9 @@ async function initFirebase(){
     // Store functions for use in saveAll
     window._fbFns = { doc, setDoc };
 
+    // Store getDoc for login system
+    window._fbFns2 = { doc, getDoc };
+
     // First: try to load existing data from Firestore
     const snap = await getDoc(doc(db,'pantheon','estoque'));
     if(snap.exists()){
@@ -2717,7 +2780,182 @@ function resetDados(){
   }
 }
 
-// ── Render with seed data immediately (Firebase will update once connected) ──
+// ════════════════════════════════════════════════════════════════
+// SISTEMA DE LOGIN
+// ════════════════════════════════════════════════════════════════
+
+// Usuários padrão (senha hasheada com SHA-256 simples)
+// admin / pantheon2024 | colaboradora / clinica123
+const DEFAULT_USERS = [
+  {user:'admin',  passHash:'9a79d00b0b2c2b7c55d469b74b9f4042ed58573f8781d7fc81337044f3d70fc9', role:'admin',        nome:'Administrador'},
+  {user:'savana', passHash:'72620f90896249f7e3989e6f114399717ba368af2fb1ddd582bfed53f80d572c', role:'colaboradora', nome:'Savana'},
+];
+
+let currentUser = null;
+let appUsers = [...DEFAULT_USERS];
+
+// Simple hash function (sha-256 via SubtleCrypto)
+async function hashPass(pass){
+  const enc = new TextEncoder();
+  const buf = await crypto.subtle.digest('SHA-256', enc.encode('pth_salt_'+pass));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function fazerLogin(){
+  const userInput = document.getElementById('login-user').value.trim().toLowerCase();
+  const passInput = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+
+  if(!userInput || !passInput){ errEl.textContent = 'Preencha usuário e senha.'; return; }
+
+  // Load users from Firebase if available
+  if(db){
+    try {
+      const { doc, getDoc } = window._fbFns2||{};
+      if(getDoc){
+        const snap = await getDoc(doc(db,'pantheon','usuarios'));
+        if(snap.exists()) appUsers = snap.data().lista || appUsers;
+      }
+    } catch(e){}
+  }
+
+  const hash = await hashPass(passInput);
+  const found = appUsers.find(u => u.user === userInput && u.passHash === hash);
+
+  if(!found){
+    errEl.textContent = '❌ Usuário ou senha incorretos.';
+    document.getElementById('login-pass').value = '';
+    return;
+  }
+
+  currentUser = found;
+  sessionStorage.setItem('pth_session', JSON.stringify({user:found.user, nome:found.nome, role:found.role, ts:Date.now()}));
+
+  // Hide login, show app
+  document.getElementById('login-screen').style.display = 'none';
+  renderUserBadge();
+
+  // Hide admin-only buttons for colaboradora
+  if(found.role !== 'admin'){
+    const resetBtn = document.querySelector('button[onclick="resetDados()"]');
+    if(resetBtn) resetBtn.style.display = 'none';
+  }
+}
+
+function renderUserBadge(){
+  if(!currentUser) return;
+  const isAdmin = currentUser.role === 'admin';
+  document.getElementById('user-badge-area').innerHTML = `
+    <div class="user-badge" onclick="${isAdmin?'abrirAdmin()':'void(0)'}" title="${isAdmin?'Gerenciar usuários':''}">
+      <div class="user-avatar">${currentUser.nome.charAt(0).toUpperCase()}</div>
+      ${currentUser.nome}
+      ${isAdmin?'<span style="font-size:10px;opacity:.7">⚙️</span>':''}
+    </div>
+    <button onclick="fazerLogout()" style="border:none;background:none;cursor:pointer;font-size:11px;color:var(--tx2);padding:4px 6px;border-radius:4px" title="Sair">↩ Sair</button>
+  `;
+}
+
+function fazerLogout(){
+  if(!confirm('Deseja sair do sistema?')) return;
+  sessionStorage.removeItem('pth_session');
+  currentUser = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('user-badge-area').innerHTML = '';
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-err').textContent = '';
+}
+
+function abrirAdmin(){
+  if(currentUser?.role !== 'admin'){ toast('Acesso negado.',true); return; }
+  renderAdminList();
+  document.getElementById('admin-modal').style.display = 'flex';
+}
+
+function renderAdminList(){
+  document.getElementById('admin-user-list').innerHTML = appUsers.map((u,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:var(--r);margin-bottom:6px">
+      <div>
+        <span style="font-weight:600;font-size:13px">${u.nome}</span>
+        <span style="color:var(--tx2);font-size:12px;margin-left:8px">@${u.user}</span>
+        <span class="pill ${u.role==='admin'?'pp':'pt'}" style="margin-left:6px;font-size:10px">${u.role}</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="redefinirSenha(${i})" style="border:none;background:var(--blue-bg);color:var(--blue);cursor:pointer;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px">🔑 Redefinir senha</button>
+        ${u.user!=='admin'?`<button onclick="removerUsuario(${i})" style="border:none;background:var(--red-bg);color:var(--red);cursor:pointer;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px">✕ Remover</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+async function adicionarUsuario(){
+  const user = document.getElementById('nu-user').value.trim().toLowerCase();
+  const pass = document.getElementById('nu-pass').value;
+  const role = document.getElementById('nu-role').value;
+  if(!user||pass.length<4){ toast('Usuário e senha (mín. 4 caracteres) são obrigatórios.',true); return; }
+  if(appUsers.find(u=>u.user===user)){ toast('Usuário já existe.',true); return; }
+  const hash = await hashPass(pass);
+  const nome = user.charAt(0).toUpperCase()+user.slice(1);
+  appUsers.push({user, passHash:hash, role, nome});
+  await salvarUsuariosFirebase();
+  document.getElementById('nu-user').value='';
+  document.getElementById('nu-pass').value='';
+  renderAdminList();
+  toast(`✓ Usuário @${user} criado com sucesso.`);
+}
+
+async function removerUsuario(idx){
+  if(!confirm(`Remover usuário @${appUsers[idx].user}?`)) return;
+  appUsers.splice(idx,1);
+  await salvarUsuariosFirebase();
+  renderAdminList();
+  toast('Usuário removido.');
+}
+
+async function redefinirSenha(idx){
+  const novaSenha = prompt(`Nova senha para @${appUsers[idx].user}:`);
+  if(!novaSenha||novaSenha.length<4){ toast('Senha deve ter ao menos 4 caracteres.',true); return; }
+  appUsers[idx].passHash = await hashPass(novaSenha);
+  await salvarUsuariosFirebase();
+  renderAdminList();
+  toast(`✓ Senha de @${appUsers[idx].user} redefinida.`);
+}
+
+async function salvarUsuariosFirebase(){
+  if(!db) return;
+  try {
+    const { doc, setDoc } = window._fbFns;
+    await setDoc(doc(db,'pantheon','usuarios'), {lista: appUsers});
+  } catch(e){ console.error('Erro ao salvar usuários:', e); }
+}
+
+// Check session on load (keep user logged in while tab is open)
+function checkSession(){
+  const raw = sessionStorage.getItem('pth_session');
+  if(!raw) return false;
+  try {
+    const s = JSON.parse(raw);
+    // Session expires after 8 hours
+    if(Date.now() - s.ts > 8*60*60*1000){ sessionStorage.removeItem('pth_session'); return false; }
+    currentUser = {user:s.user, nome:s.nome, role:s.role};
+    document.getElementById('login-screen').style.display = 'none';
+    renderUserBadge();
+    if(currentUser.role !== 'admin'){
+      const resetBtn = document.querySelector('button[onclick="resetDados()"]');
+      if(resetBtn) resetBtn.style.display = 'none';
+    }
+    return true;
+  } catch(e){ return false; }
+}
+
+// Enter key on login fields
+document.getElementById('login-user').addEventListener('keydown', e => {
+  if(e.key==='Enter') document.getElementById('login-pass').focus();
+});
+
+// ════════════════════════════════════════════════════════════════
+// RENDER WITH SEEDS + CONNECT FIREBASE
+// ════════════════════════════════════════════════════════════════
 initMovFilters();
 initRegSelects();
 initInvFilter();
@@ -2732,7 +2970,10 @@ renderAI();
 renderAP();
 renderEV();
 
-// ── Connect to Firebase (updates UI automatically when data arrives) ──
+// ── Check existing session (keep logged in while tab is open) ──
+checkSession();
+
+// ── Connect to Firebase ──
 initFirebase();
 </script>
 </body>
