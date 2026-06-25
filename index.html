@@ -2453,19 +2453,19 @@ function parseCSV(text){
 function parseHTMLMovReport(text){
   const rows = [];
 
-  // Step 1: Strip CSV padding (,,,, at end of lines) to get clean HTML
+  // Strip CSV padding (,,,, at end of lines) to get clean HTML
   const cleanHtml = text.split('\n')
     .map(l => l.replace(/,+\s*$/, '').trim())
     .join('\n');
 
-  // Step 2: Extract all <td> text values in order
+  // Extract all <td> text values in order
   const tdRe = /<td[^>]*>([\s\S]*?)<\/td>/gi;
   const tds = [];
   let m;
   while((m = tdRe.exec(cleanHtml)) !== null){
     const raw = m[1].replace(/<[^>]+>/g,'').trim()
       .replace(/^["]+|["]+$/g,'').replace(/,+$/,'').trim();
-    if(raw && raw !== '""' && !/^,+$/.test(raw)) tds.push(raw);
+    if(raw && raw !== '""' && !/^[,\s]+$/.test(raw)) tds.push(raw);
   }
 
   // Product name mapping
@@ -2485,74 +2485,118 @@ function parseHTMLMovReport(text){
   };
   function mapProd(n){
     const up = n.toUpperCase().trim();
+    if(prodMap[up]) return prodMap[up];
     for(const [k,v] of Object.entries(prodMap)){
-      if(up === k || up.startsWith(k)) return v;
+      if(up.startsWith(k)) return v;
     }
     return n.trim();
   }
 
-  const dateRe   = /^\d{2}\/\d{2}\/\d{4}$/;
-  const tipoRe   = /^(SAIDA|ENTRADA)$/i;
-  const numRe    = /^\d+(?:[,\.]\d+)?$/;
-  const undList  = new Set(['AP','ML','UN','L','PC','CX','G','MG']);
-  const skipWords = new Set(['REMEDIOS','SAIDA','ENTRADA','Mês','Tipo','Movimentação','Quem',
-    'Qtd','Und Medida','Valor Unitário','Valor Total','Estoque Mínimo','Obs','savana.falcao',
-    'admin','colaboradora']);
+  const dateRe  = /^\d{2}\/\d{2}\/\d{4}$/;
+  const tipoRe  = /^(SAIDA|ENTRADA)$/i;
+  const numRe   = /^\d+(?:[,\.]\d+)?$/;
+  const undList = new Set(['AP','ML','UN','L','PC','CX','G','MG']);
+  // Known header/system words to skip
+  const skipSet = new Set(['REMEDIOS','MÊS','MES','TIPO','MOVIMENTAÇÃO','MOVIMENTACAO',
+    'QUEM','QTD','UND MEDIDA','VALOR UNITÁRIO','VALOR UNIT','VALOR UNITARIO',
+    'VALOR TOTAL','ESTOQUE MÍNIMO','ESTOQUE MINIMO','OBS','AJUSTE DE ESTOQUE']);
+  // Known user logins (not product names)
+  const userRe = /^[a-z]+\.[a-z]+$/; // e.g. savana.falcao
 
-  // Step 3: Walk through TD values and group into transactions
-  // Structure per transaction: produto(sometimes), data, tipo, quem, qtd, und, vunit, vtotal, estmin, estoque, obs
   let currentProd = null;
   let i = 0;
 
   while(i < tds.length){
     const t = tds[i];
+    const tu = t.toUpperCase().trim();
 
-    // Skip header/section labels
-    if(skipWords.has(t) || /^Estoque/.test(t)){ i++; continue; }
+    // Skip header/meta words
+    if(skipSet.has(tu) || userRe.test(t) || /^Estoque/i.test(t)){
+      i++; continue;
+    }
 
-    // Detect product name (not a date, not a number, not a type keyword, longer than 3 chars)
-    if(!dateRe.test(t) && !tipoRe.test(t) && !numRe.test(t) && !undList.has(t) && t.length > 3){
+    // Detect product name: not a date, not SAIDA/ENTRADA, not a number, not a unit,
+    // starts with uppercase letter, and is a known product OR looks like one
+    if(!dateRe.test(t) && !tipoRe.test(t) && !numRe.test(t) && !undList.has(tu)){
       const mapped = mapProd(t);
-      if(mapped !== t || prodMap[t.toUpperCase()]){
-        currentProd = mapped;
-        i++; continue;
-      }
-      // Could be a product name we don't have mapped
-      if(/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑ]/.test(t) && !t.includes('/') && t.length > 4){
-        currentProd = mapProd(t);
-        i++; continue;
+      // It's a product name if we mapped it OR it looks like a medicine name (all caps, no slash)
+      const looksLikeProd = /^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑ\s\-\/\(\)\+,0-9]{3,}$/.test(tu) && tu.length > 3 && !tu.includes('/');
+      if(prodMap[tu] || looksLikeProd){
+        // Only set as product if next few tds contain a date
+        const lookahead = tds.slice(i+1, i+4);
+        if(lookahead.some(x => dateRe.test(x)) || prodMap[tu]){
+          currentProd = mapped;
+          i++; continue;
+        }
       }
     }
 
     // Transaction starts with a date
     if(dateRe.test(t) && currentProd){
       const data = t;
-      const remaining = tds.slice(i+1, i+12);
-      
-      const tipo_t = remaining.find(x => tipoRe.test(x));
-      const qtd_t  = remaining.find(x => numRe.test(x) && !dateRe.test(x) && parseFloat(x.replace(',','.')) > 0 && parseFloat(x.replace(',','.')) < 10000);
-      const und_t  = remaining.find(x => undList.has(x));
-      
-      if(tipo_t && qtd_t){
-        // obs is last meaningful string that's not a number/date/type/und/user
-        const obsIdx = [...remaining].reverse().findIndex(x =>
-          x.length > 2 && !dateRe.test(x) && !tipoRe.test(x) &&
-          !numRe.test(x) && !undList.has(x) && !skipWords.has(x));
-        const obs_t = obsIdx >= 0 ? [...remaining].reverse()[obsIdx] : '';
-        
-        // Clean obs — don't use product name as obs
-        const obsClean = (obs_t && obs_t.toUpperCase() !== currentProd.toUpperCase()) ? obs_t : '';
+      // Next ~10 tds are: tipo, usuario, qtd, und, vunit, vtotal, estmin, estoque_atual, obs
+      const chunk = tds.slice(i+1, i+12);
 
-        rows.push({
-          produto: currentProd,
-          data,
-          tipo:    tipo_t.toUpperCase(),
-          qty:     String(parseFloat(qtd_t.replace(',','.'))),
-          und:     und_t || '',
-          vunit:   '0',
-          obs:     obsClean,
-        });
+      const tipo = chunk.find(x => tipoRe.test(x));
+      if(!tipo){ i++; continue; }
+
+      // qtd: first number after tipo (skip user login)
+      const tipoIdx = chunk.indexOf(tipo);
+      const afterTipo = chunk.slice(tipoIdx+1);
+
+      // Structure after tipo: [usuario?, qtd, und, vunit, vtotal, estmin, estoque_atual, obs]
+      // Find unit first, then qty is the number just before it
+      const undIdx = afterTipo.findIndex(x => undList.has(x.toUpperCase()));
+      let qtdRaw = null;
+      if(undIdx > 0){
+        // qty is the number immediately before und
+        for(let k = undIdx-1; k >= 0; k--){
+          if(numRe.test(afterTipo[k]) && parseFloat(afterTipo[k].replace(',','.')) > 0){
+            qtdRaw = afterTipo[k]; break;
+          }
+        }
       }
+      // Fallback: first number after skipping user login
+      if(!qtdRaw){
+        qtdRaw = afterTipo.filter(x => !userRe.test(x))
+          .find(x => numRe.test(x) && parseFloat(x.replace(',','.')) > 0);
+      }
+      if(!qtdRaw){ i++; continue; }
+
+      const qty = parseFloat(qtdRaw.replace(',','.'));
+      if(qty === 0){ i++; continue; }
+      // Tirzepatida is tracked via ampolas panel, skip from general report
+      if(currentProd === 'TIRZEPATIDA'){ i++; continue; }
+      // Sanity: ML quantities from report shouldn't exceed reasonable amounts
+      if(und === 'ML' && qty > 100){ i++; continue; }
+      if(und === 'AP' && qty > 500){ i++; continue; }
+
+      const und = afterTipo.find(x => undList.has(x.toUpperCase())) || '';
+
+      // obs/paciente: LAST non-numeric, non-date, non-tipo, non-und, non-user text in chunk
+      const obsCandidate = [...chunk].reverse().find(x =>
+        x.length > 2 &&
+        !dateRe.test(x) &&
+        !tipoRe.test(x) &&
+        !numRe.test(x) &&
+        !undList.has(x.toUpperCase()) &&
+        !userRe.test(x) &&
+        !skipSet.has(x.toUpperCase()) &&
+        !/^Estoque/i.test(x)
+      );
+      // Don't use product name or type as obs
+      const obs = (obsCandidate && obsCandidate.toUpperCase() !== currentProd.toUpperCase()) ? obsCandidate : '';
+
+      rows.push({
+        produto: currentProd,
+        data,
+        tipo:  tipo.toUpperCase(),
+        qty:   String(qty),
+        und,
+        vunit: '0',
+        obs: obs.replace(/^\n\d+$/, '').trim(), // clean obs like "\n31"
+      });
+
       i++;
     } else {
       i++;
@@ -2562,6 +2606,7 @@ function parseHTMLMovReport(text){
   rows._isHTMLReport = true;
   return rows;
 }
+
 
 function splitCSVLine(line, sep){
   const result=[], re=new RegExp(`(?:^|${sep})("(?:[^"]|"")*"|[^${sep}]*)`, 'g');
